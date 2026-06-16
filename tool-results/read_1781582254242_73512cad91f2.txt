@@ -1,0 +1,952 @@
+     1→"Build a landing page for my SaaS product" "Diseña un website para analytics de buudget mensual" "Crea una app de moderna responsive usable tanto en escritorio como mobile funcionalidades:
+     2→
+     3→1. Crear presupuesto basico
+     4→-seleccionar quincena o mes
+     5→-registrar ingresos (salarios, otros ingresos, etc)
+     6→-registrar gastos fijos (recibos de luz, agua, alquiler casa, etc)
+     7→-registrar obligacioneos crediticias (tarjetas de crédito, prestamos, financiamientos)
+     8→-registrar "fondos de emergencia" opcional
+     9→-registrar otros consumos
+    10→2. crear proyecciones:, -deudua tarjeta de créditom, tasa de intres, calclo con formula de interes compuesto que me diga cuanto pagaré en intereses en x periodo
+    11→
+    12→-cuanto pagare por nu prestamo en x plazo a x taza de interes segun el uso de intereses en costa rica
+    13→-calculo de financiamientos: 
+    14→monto total:
+    15→a x plazo
+    16→tasa de interes: 
+    17→cuanto apgaria por mes
+    18→
+    19→aca tengo ejemplos de la logica simple uqe hice en nu html: 
+    20→
+    21→<!DOCTYPE html>
+    22→<html lang="es">
+    23→<head>
+    24→    <meta charset="UTF-8">
+    25→    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    26→    <title>Simulador Definitivo TC | Banco Popular</title>
+    27→    
+    28→    <link rel="preconnect" href="https://fonts.googleapis.com">
+    29→    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    30→    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    31→    <script src="https://cdn.tailwindcss.com"></script>
+    32→    <script>
+    33→        tailwind.config = {
+    34→            theme: {
+    35→                extend: {
+    36→                    fontFamily: { sans: ['Inter', 'sans-serif'], display: ['Poppins', 'sans-serif'], },
+    37→                    colors: {
+    38→                        bp: { purple: '#651480', purplelight: '#8b2eab', purplebg: '#f8f4fa', orange: '#FF7900', orangedark: '#e66d00', }
+    39→                    },
+    40→                    boxShadow: { 'soft': '0 10px 40px -10px rgba(0,0,0,0.08)', 'floating': '0 20px 40px -10px rgba(101, 20, 128, 0.15)', }
+    41→                }
+    42→            }
+    43→        }
+    44→    </script>
+    45→    <script src="https://unpkg.com/lucide@latest"></script>
+    46→    <style>
+    47→        .expandable { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); max-height: 0; opacity: 0; overflow: hidden; }
+    48→        .expandable.open { max-height: 400px; opacity: 1; margin-top: 1rem; overflow: visible; }
+    49→        
+    50→        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    51→        input[type=number] { -moz-appearance: textfield; }
+    52→        
+    53→        .pulse-update { animation: pulseGreen 0.5s ease-out; }
+    54→        @keyframes pulseGreen { 0% { color: #68D391; transform: scale(1.05); } 100% { color: inherit; transform: scale(1); } }
+    55→
+    56→        /* Estilos para el Switch Moderno */
+    57→        .modern-switch {
+    58→            position: relative;
+    59→            display: inline-flex;
+    60→            align-items: center;
+    61→            cursor: pointer;
+    62→        }
+    63→
+    64→        .modern-switch input[type="checkbox"] {
+    65→            opacity: 0;
+    66→            width: 0;
+    67→            height: 0;
+    68→            position: absolute;
+    69→        }
+    70→
+    71→        .switch-track {
+    72→            width: 3.5rem; /* w-14 */
+    73→            height: 1.75rem; /* h-7 */
+    74→            background-color: #cbd5e1; /* slate-300 */
+    75→            border-radius: 9999px;
+    76→            transition: background-color 0.3s ease;
+    77→            position: relative;
+    78→            display: flex;
+    79→            align-items: center;
+    80→            padding: 0.125rem; /* p-0.5 */
+    81→        }
+    82→
+    83→        .switch-thumb {
+    84→            width: 1.5rem; /* w-6 */
+    85→            height: 1.5rem; /* h-6 */
+    86→            background-color: white;
+    87→            border-radius: 50%;
+    88→            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    89→            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    90→            display: flex;
+    91→            justify-content: center;
+    92→            align-items: center;
+    93→            transform: translateX(0);
+    94→        }
+    95→
+    96→        /* Icono dentro del thumb (opcional, para darle más estilo) */
+    97→        .switch-icon {
+    98→            width: 12px;
+    99→            height: 12px;
+   100→            color: #cbd5e1;
+   101→            transition: color 0.3s ease;
+   102→        }
+   103→
+   104→        .modern-switch input[type="checkbox"]:checked + .switch-track {
+   105→            background-color: #FF7900; /* bp-orange */
+   106→        }
+   107→
+   108→        .modern-switch input[type="checkbox"]:checked + .switch-track .switch-thumb {
+   109→            transform: translateX(1.75rem); /* Mover a la derecha */
+   110→        }
+   111→
+   112→        .modern-switch input[type="checkbox"]:checked + .switch-track .switch-icon {
+   113→            color: #FF7900;
+   114→        }
+   115→        
+   116→        .modern-switch input[type="checkbox"]:focus-visible + .switch-track {
+   117→            outline: 2px solid #651480;
+   118→            outline-offset: 2px;
+   119→        }
+   120→
+   121→        /* Estilo para las tarjetas de los switches cuando están activos */
+   122→        .switch-card {
+   123→            transition: all 0.3s ease;
+   124→        }
+   125→        .switch-card.active {
+   126→            border-color: #FF7900;
+   127→            background-color: #fffaf0; /* Fondo naranja muy suave */
+   128→        }
+   129→    </style>
+   130→</head>
+   131→<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+   132→
+   133→    <!-- Header -->
+   134→    <header class="bg-bp-purple text-white py-6 shadow-md relative z-10">
+   135→        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+   136→            <div class="flex items-center gap-3">
+   137→                <i data-lucide="microscope" class="w-8 h-8 text-bp-orange"></i>
+   138→                <div>
+   139→                    <h1 class="font-display text-xl sm:text-2xl font-bold tracking-tight">Simulador BP Definitivo</h1>
+   140→                    <p class="text-bp-purplebg text-xs sm:text-sm opacity-90">Ingeniería inversa con Modo Avanzado</p>
+   141→                </div>
+   142→            </div>
+   143→            
+   144→            <div class="bg-bp-purplelight/50 p-1 rounded-lg flex border border-white/20 self-end sm:self-auto">
+   145→                <button id="btn-crc" onclick="setMoneda('CRC')" class="px-3 py-1.5 rounded-md text-sm font-bold transition-colors bg-white text-bp-purple shadow-sm">CRC ₡</button>
+   146→                <button id="btn-usd" onclick="setMoneda('USD')" class="px-3 py-1.5 rounded-md text-sm font-bold transition-colors text-white hover:bg-white/10">USD $</button>
+   147→            </div>
+   148→        </div>
+   149→    </header>
+   150→
+   151→    <main class="flex-grow py-8 px-4 sm:px-6 lg:px-8">
+   152→        <div class="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+   153→            
+   154→            <!-- CONTROLES -->
+   155→            <div class="lg:col-span-7 space-y-5">
+   156→                
+   157→                <!-- Base de la Deuda -->
+   158→                <div class="bg-white rounded-2xl shadow-soft p-6 border border-slate-100">
+   159→                    <h2 class="font-display font-semibold text-lg text-slate-800 flex items-center gap-2 mb-5">
+   160→                        <i data-lucide="wallet" class="w-5 h-5 text-bp-purple"></i>
+   161→                        Datos Principales
+   162→                    </h2>
+   163→
+   164→                    <div class="space-y-4">
+   165→                        <div>
+   166→                            <label class="block text-sm font-medium text-slate-700">Saldo Principal Adeudado</label>
+   167→                            <div class="relative mt-1">
+   168→                                <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400 currency-symbol">₡</span>
+   169→                                <input type="number" id="inp-principal" placeholder="0.00" class="w-full pl-10 pr-4 py-3 font-medium border border-slate-200 rounded-xl focus:ring-2 focus:ring-bp-purple focus:border-bp-purple bg-slate-50 focus:bg-white transition-all text-lg" oninput="calcular()">
+   170→                            </div>
+   171→                        </div>
+   172→
+   173→                        <div class="grid grid-cols-2 gap-4">
+   174→                            <div>
+   175→                                <label class="block text-sm font-medium text-slate-700 mb-1">Tasa Anual (%)</label>
+   176→                                <input type="number" id="inp-tasa" value="27.50" step="0.01" class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-bp-purple transition-all bg-slate-50 text-slate-700 font-medium" oninput="calcular()">
+   177→                            </div>
+   178→                            <div>
+   179→                                <label class="block text-sm font-medium text-slate-700 mb-1">Cargos y Administrativos</label>
+   180→                                <div class="relative">
+   181→                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 currency-symbol">₡</span>
+   182→                                    <input type="number" id="inp-cargos" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-bp-purple transition-all bg-slate-50" oninput="calcular()">
+   183→                                </div>
+   184→                            </div>
+   185→                        </div>
+   186→                    </div>
+   187→                </div>
+   188→
+   189→                <!-- Programas de Cuotas (NUEVO DISEÑO DE SWITCHES) -->
+   190→                <div class="bg-white rounded-2xl shadow-soft p-6 border border-slate-100 space-y-4">
+   191→                    <h2 class="font-display font-semibold text-lg text-slate-800 flex items-center gap-2 mb-4">
+   192→                        <i data-lucide="layers" class="w-5 h-5 text-bp-purple"></i>
+   193→                        Planes de Lealtad (Al 100%)
+   194→                    </h2>
+   195→
+   196→                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   197→                        <!-- Switch Tasa Cero -->
+   198→                        <div id="card-tasa0" class="switch-card p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+   199→                            <div class="flex items-center justify-between mb-2">
+   200→                                <label for="chk-tasa0" class="font-medium text-slate-800 text-sm cursor-pointer select-none">
+   201→                                    Tasa Cero
+   202→                                </label>
+   203→                                <label class="modern-switch">
+   204→                                    <input type="checkbox" id="chk-tasa0" onchange="toggleSectionModern('tasa0')">
+   205→                                    <div class="switch-track">
+   206→                                        <div class="switch-thumb">
+   207→                                            <!-- Icono SVG (Check) -->
+   208→                                            <svg class="switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+   209→                                                <polyline points="20 6 9 17 4 12"></polyline>
+   210→                                            </svg>
+   211→                                        </div>
+   212→                                    </div>
+   213→                                </label>
+   214→                            </div>
+   215→                            <div id="container-tasa0" class="expandable">
+   216→                                <label class="block text-xs font-medium text-slate-500 mb-1">Cuota mensual facturada</label>
+   217→                                <div class="relative">
+   218→                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 currency-symbol">₡</span>
+   219→                                    <input type="number" id="inp-tasa0" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-bp-orange transition-all bg-white" oninput="calcular()">
+   220→                                </div>
+   221→                            </div>
+   222→                        </div>
+   223→
+   224→                        <!-- Switch Minicuotas -->
+   225→                        <div id="card-minicuotas" class="switch-card p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+   226→                            <div class="flex items-center justify-between mb-2">
+   227→                                <label for="chk-minicuotas" class="font-medium text-slate-800 text-sm cursor-pointer select-none">
+   228→                                    BP Minicuotas
+   229→                                </label>
+   230→                                <label class="modern-switch">
+   231→                                    <input type="checkbox" id="chk-minicuotas" onchange="toggleSectionModern('minicuotas')">
+   232→                                    <div class="switch-track">
+   233→                                        <div class="switch-thumb">
+   234→                                             <svg class="switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+   235→                                                <polyline points="20 6 9 17 4 12"></polyline>
+   236→                                            </svg>
+   237→                                        </div>
+   238→                                    </div>
+   239→                                </label>
+   240→                            </div>
+   241→                            <div id="container-minicuotas" class="expandable">
+   242→                                <label class="block text-xs font-medium text-slate-500 mb-1">Cuota mensual facturada</label>
+   243→                                <div class="relative">
+   244→                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 currency-symbol">₡</span>
+   245→                                    <input type="number" id="inp-minicuotas" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-bp-orange transition-all bg-white" oninput="calcular()">
+   246→                                </div>
+   247→                            </div>
+   248→                        </div>
+   249→                    </div>
+   250→                </div>
+   251→
+   252→                <!-- MODO EXPERTO -->
+   253→                <div class="bg-slate-800 rounded-2xl shadow-soft p-6 border border-slate-700 text-white">
+   254→                    <div class="flex items-center justify-between cursor-pointer" onclick="document.getElementById('chk-experto').click()">
+   255→                        <div class="flex items-center gap-2">
+   256→                            <i data-lucide="settings-2" class="w-5 h-5 text-bp-orange"></i>
+   257→                            <div>
+   258→                                <h3 class="font-display font-semibold text-white">Modo Experto</h3>
+   259→                                <p class="text-xs text-slate-400">Calibración avanzada</p>
+   260→                            </div>
+   261→                        </div>
+   262→                        <label class="modern-switch" onclick="event.stopPropagation()">
+   263→                            <input type="checkbox" id="chk-experto" onchange="toggleSectionModern('experto')">
+   264→                            <div class="switch-track" style="background-color: #475569;"> <!-- Tono más oscuro para fondo oscuro -->
+   265→                                <div class="switch-thumb">
+   266→                                    <svg class="switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+   267→                                        <polyline points="20 6 9 17 4 12"></polyline>
+   268→                                    </svg>
+   269→                                </div>
+   270→                            </div>
+   271→                        </label>
+   272→                    </div>
+   273→                    
+   274→                    <div id="container-experto" class="expandable">
+   275→                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-700">
+   276→                            <!-- Saldo Promedio -->
+   277→                            <div class="sm:col-span-2">
+   278→                                <label class="block text-xs font-medium text-slate-300 mb-1">Saldo Promedio Diario (Para cálculo exacto de interés)</label>
+   279→                                <p class="text-[10px] text-slate-400 mb-2">Si se deja vacío, se usará el Saldo Principal.</p>
+   280→                                <div class="relative">
+   281→                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 currency-symbol">₡</span>
+   282→                                    <input type="number" id="inp-promedio" placeholder="Mismo que el principal" class="w-full pl-8 pr-3 py-2 border border-slate-600 bg-slate-700 rounded-lg focus:ring-2 focus:ring-bp-orange text-white placeholder-slate-400 transition-all" oninput="calcular()">
+   283→                                </div>
+   284→                            </div>
+   285→                            
+   286→                            <!-- Sobregiro -->
+   287→                            <div>
+   288→                                <label class="block text-xs font-medium text-slate-300 mb-1">Sobregiro (Al 100%)</label>
+   289→                                <div class="relative">
+   290→                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 currency-symbol">₡</span>
+   291→                                    <input type="number" id="inp-sobregiro" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-600 bg-slate-700 rounded-lg focus:ring-2 focus:ring-bp-orange text-white transition-all" oninput="calcular()">
+   292→                                </div>
+   293→                            </div>
+   294→
+   295→                            <!-- Mora -->
+   296→                            <div>
+   297→                                <label class="block text-xs font-medium text-slate-300 mb-1">Saldo en Mora (Al 100%)</label>
+   298→                                <div class="relative">
+   299→                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 currency-symbol">₡</span>
+   300→                                    <input type="number" id="inp-mora" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-600 bg-slate-700 rounded-lg focus:ring-2 focus:ring-bp-orange text-white transition-all" oninput="calcular()">
+   301→                                </div>
+   302→                            </div>
+   303→                        </div>
+   304→                    </div>
+   305→                </div>
+   306→
+   307→            </div>
+   308→
+   309→            <!-- RESULTADOS -->
+   310→            <div class="lg:col-span-5 relative">
+   311→                <div class="sticky top-6 space-y-5">
+   312→                    
+   313→                    <!-- Tarjeta Principal Pago Mínimo -->
+   314→                    <div class="bg-white rounded-2xl shadow-floating p-6 border-t-4 border-bp-orange relative overflow-hidden">
+   315→                        <div class="flex justify-between items-start mb-1">
+   316→                            <h2 class="font-display font-bold text-slate-800 text-lg">Pago Mínimo</h2>
+   317→                            <span id="badge-piso" class="hidden bg-red-100 text-red-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Aplica Piso Base</span>
+   318→                        </div>
+   319→                        <p class="text-xs text-slate-400 mb-4">Total a pagar para no caer en mora</p>
+   320→                        
+   321→                        <p id="res-minimo" class="font-display text-4xl sm:text-5xl font-extrabold text-bp-orange tracking-tight mb-6">
+   322→                            ₡0.00
+   323→                        </p>
+   324→
+   325→                        <div class="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm">
+   326→                            <div class="flex justify-between items-center">
+   327→                                <span class="text-slate-500">Amortización (P/60)</span>
+   328→                                <span id="res-amortizacion" class="font-medium text-slate-700">₡0.00</span>
+   329→                            </div>
+   330→                            <div class="flex justify-between items-center">
+   331→                                <span class="text-slate-500" title="Calculado sobre saldo promedio si se indicó">Intereses</span>
+   332→                                <span id="res-intereses" class="font-medium text-slate-700">₡0.00</span>
+   333→                            </div>
+   334→                            <div class="flex justify-between items-center">
+   335→                                <span class="text-slate-500">Cargos Admin.</span>
+   336→                                <span id="res-cargos" class="font-medium text-slate-700">₡0.00</span>
+   337→                            </div>
+   338→                            
+   339→                            <div id="row-sobregiro" class="hidden flex justify-between items-center text-red-600 font-medium pt-1">
+   340→                                <span>Sobregiro + Mora</span>
+   341→                                <span id="res-sobregiro">₡0.00</span>
+   342→                            </div>
+   343→
+   344→                            <div class="flex justify-between items-center border-t border-slate-200 pt-2 mt-2">
+   345→                                <span class="text-slate-600 font-semibold">Cuotas (TC / MC)</span>
+   346→                                <span id="res-cuotas" class="font-bold text-bp-purple">₡0.00</span>
+   347→                            </div>
+   348→                        </div>
+   349→                    </div>
+   350→
+   351→                    <!-- Tarjeta Pago de Contado -->
+   352→                    <div class="bg-gradient-to-br from-bp-purple to-bp-purplelight rounded-2xl shadow-soft p-6 text-white">
+   353→                        <div class="flex justify-between items-center mb-2">
+   354→                            <h2 class="font-display font-semibold text-lg">Pago de Contado</h2>
+   355→                            <i data-lucide="check-circle" class="w-5 h-5 text-bp-purplebg opacity-80"></i>
+   356→                        </div>
+   357→                        <p class="text-[11px] text-bp-purplebg/80 mb-3">Cancele este monto para no generar nuevos intereses de financiamiento.</p>
+   358→                        <p id="res-contado" class="font-display text-3xl font-bold text-white">
+   359→                            ₡0.00
+   360→                        </p>
+   361→                    </div>
+   362→
+   363→                </div>
+   364→            </div>
+   365→
+   366→        </div>
+   367→    </main>
+   368→
+   369→    <script>
+   370→        lucide.createIcons();
+   371→
+   372→        let moneda = 'CRC';
+   373→        const config = {
+   374→            'CRC': { simbolo: '₡', tasaDefecto: 27.50, pisoMinimo: 4000 },
+   375→            'USD': { simbolo: '$', tasaDefecto: 20.00, pisoMinimo: 10 } 
+   376→        };
+   377→
+   378→        function setMoneda(nuevaMoneda) {
+   379→            moneda = nuevaMoneda;
+   380→            
+   381→            const btnCrc = document.getElementById('btn-crc');
+   382→            const btnUsd = document.getElementById('btn-usd');
+   383→            if (moneda === 'CRC') {
+   384→                btnCrc.className = 'px-3 py-1.5 rounded-md text-sm font-bold transition-colors bg-white text-bp-purple shadow-sm';
+   385→                btnUsd.className = 'px-3 py-1.5 rounded-md text-sm font-bold transition-colors text-white hover:bg-white/10';
+   386→            } else {
+   387→                btnUsd.className = 'px-3 py-1.5 rounded-md text-sm font-bold transition-colors bg-white text-bp-purple shadow-sm';
+   388→                btnCrc.className = 'px-3 py-1.5 rounded-md text-sm font-bold transition-colors text-white hover:bg-white/10';
+   389→            }
+   390→
+   391→            document.querySelectorAll('.currency-symbol').forEach(el => el.innerText = config[moneda].simbolo);
+   392→            document.getElementById('inp-tasa').value = config[moneda].tasaDefecto;
+   393→            
+   394→            calcular();
+   395→        }
+   396→
+   397→        // Nueva función para manejar el switch moderno y sus efectos
+   398→        function toggleSectionModern(section) {
+   399→            const chk = document.getElementById(`chk-${section}`);
+   400→            const container = document.getElementById(`container-${section}`);
+   401→            
+   402→            // Efectos visuales para las tarjetas de lealtad
+   403→            if(section === 'tasa0' || section === 'minicuotas') {
+   404→                 const card = document.getElementById(`card-${section}`);
+   405→                 if(chk.checked) {
+   406→                     card.classList.add('active');
+   407→                 } else {
+   408→                     card.classList.remove('active');
+   409→                 }
+   410→            }
+   411→
+   412→            if (chk.checked) {
+   413→                container.classList.add('open');
+   414→                // Pequeño retraso para dar foco después de la animación
+   415→                if (section !== 'experto') {
+   416→                    setTimeout(() => {
+   417→                        document.getElementById(`inp-${section}`).focus();
+   418→                    }, 300);
+   419→                }
+   420→            } else {
+   421→                container.classList.remove('open');
+   422→                // Limpiar valores
+   423→                if(section === 'experto') {
+   424→                    document.getElementById('inp-promedio').value = '';
+   425→                    document.getElementById('inp-sobregiro').value = '';
+   426→                    document.getElementById('inp-mora').value = '';
+   427→                } else {
+   428→                     document.getElementById(`inp-${section}`).value = '';
+   429→                }
+   430→                calcular();
+   431→            }
+   432→        }
+   433→
+   434→        function formato(valor) {
+   435→            if (isNaN(valor) || valor < 0) valor = 0;
+   436→            return new Intl.NumberFormat('es-CR', {
+   437→                style: 'currency', currency: moneda, minimumFractionDigits: 2
+   438→            }).format(valor);
+   439→        }
+   440→
+   441→        function animateValue(id) {
+   442→            const el = document.getElementById(id);
+   443→            el.classList.remove('pulse-update');
+   444→            void el.offsetWidth;
+   445→            el.classList.add('pulse-update');
+   446→        }
+   447→
+   448→        function calcular() {
+   449→            const principal = parseFloat(document.getElementById('inp-principal').value) || 0;
+   450→            const tasaAnual = parseFloat(document.getElementById('inp-tasa').value) || 0;
+   451→            const cargos = parseFloat(document.getElementById('inp-cargos').value) || 0;
+   452→            
+   453→            // Solo tomar valores si el switch está activo
+   454→            const cuotaT0 = document.getElementById('chk-tasa0').checked ? (parseFloat(document.getElementById('inp-tasa0').value) || 0) : 0;
+   455→            const cuotaMC = document.getElementById('chk-minicuotas').checked ? (parseFloat(document.getElementById('inp-minicuotas').value) || 0) : 0;
+   456→            const totalCuotas = cuotaT0 + cuotaMC;
+   457→
+   458→            const expertoActivo = document.getElementById('chk-experto').checked;
+   459→            const inpPromedio = document.getElementById('inp-promedio').value;
+   460→            const promedio = (expertoActivo && inpPromedio !== '') ? parseFloat(inpPromedio) : principal;
+   461→            
+   462→            const sobregiro = expertoActivo ? (parseFloat(document.getElementById('inp-sobregiro').value) || 0) : 0;
+   463→            const mora = expertoActivo ? (parseFloat(document.getElementById('inp-mora').value) || 0) : 0;
+   464→            const obligacionesExtra = sobregiro + mora;
+   465→
+   466→            const tasaMensual = (tasaAnual / 100) / 12;
+   467→            const intereses = promedio * tasaMensual;
+   468→            let amortizacion = principal / 60; 
+   469→            
+   470→            const piso = config[moneda].pisoMinimo;
+   471→            let subtotalMinimo = amortizacion + intereses + cargos;
+   472→            const badgePiso = document.getElementById('badge-piso');
+   473→            
+   474→            if (principal > 0 && subtotalMinimo < piso && subtotalMinimo > 0) {
+   475→                const diferencia = piso - subtotalMinimo;
+   476→                amortizacion += diferencia; 
+   477→                subtotalMinimo = piso;
+   478→                badgePiso.classList.remove('hidden');
+   479→            } else {
+   480→                badgePiso.classList.add('hidden');
+   481→            }
+   482→
+   483→            const pagoMinimoTotal = subtotalMinimo + totalCuotas + obligacionesExtra;
+   484→            const pagoContadoTotal = principal + intereses + cargos + totalCuotas + obligacionesExtra;
+   485→
+   486→            document.getElementById('res-minimo').innerText = formato(pagoMinimoTotal);
+   487→            document.getElementById('res-contado').innerText = formato(pagoContadoTotal);
+   488→            
+   489→            document.getElementById('res-amortizacion').innerText = formato(amortizacion);
+   490→            document.getElementById('res-intereses').innerText = formato(intereses);
+   491→            document.getElementById('res-cargos').innerText = formato(cargos);
+   492→            document.getElementById('res-cuotas').innerText = formato(totalCuotas);
+   493→
+   494→            const rowSobregiro = document.getElementById('row-sobregiro');
+   495→            if (obligacionesExtra > 0) {
+   496→                rowSobregiro.classList.remove('hidden');
+   497→                document.getElementById('res-sobregiro').innerText = formato(obligacionesExtra);
+   498→            } else {
+   499→                rowSobregiro.classList.add('hidden');
+   500→            }
+   501→
+   502→            animateValue('res-minimo');
+   503→            animateValue('res-contado');
+   504→        }
+   505→
+   506→        window.onload = calcular;
+   507→    </script>
+   508→</body>
+   509→</html>
+   510→
+   511→y 
+   512→<!DOCTYPE html>
+   513→<html lang="es">
+   514→<head>
+   515→<meta charset="UTF-8">
+   516→<meta name="viewport" content="width=device-width, initial-scale=1.0">
+   517→<title>Calculadora Financiera BP</title>
+   518→<link rel="preconnect" href="https://fonts.googleapis.com">
+   519→<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   520→<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+   521→<style>
+   522→     :root {
+   523→         --bp-purple-dark: #651480;
+   524→         --bp-purple-medium: #702F8A;
+   525→         --bp-purple-light: #7C51A1;
+   526→         --bp-orange-primary: #FF7900;
+   527→         --bp-orange-secondary: #F47920;
+   528→         --bp-white: #FFFFFF;
+   529→         --bp-light-gray: #EDEEF4;
+   530→         --bp-text-dark: #333;
+   531→         --bp-text-light: #666;
+   532→         --border-radius: 12px;
+   533→         --card-shadow: 0 15px 35px rgba(50, 50, 93, 0.1), 0 5px 15px rgba(0, 0, 0, 0.07);
+   534→         --transition-speed: 0.3s;
+   535→     }
+   536→     * { box-sizing: border-box; margin: 0; padding: 0; }
+   537→     body {
+   538→         font-family: 'Poppins', sans-serif;
+   539→         background-color: var(--bp-light-gray);
+   540→         color: var(--bp-text-dark);
+   541→         display: flex;
+   542→         justify-content: center;
+   543→         align-items: flex-start;
+   544→         min-height: 100vh;
+   545→         padding: 2rem 1rem;
+   546→     }
+   547→     .main-container {
+   548→         width: 100%;
+   549→         max-width: 850px;
+   550→         background-color: var(--bp-white);
+   551→         border-radius: var(--border-radius);
+   552→         box-shadow: var(--card-shadow);
+   553→         overflow: hidden;
+   554→     }
+   555→     header {
+   556→         background-color: var(--bp-purple-dark);
+   557→         color: var(--bp-white);
+   558→         padding: 1.5rem 2rem;
+   559→         text-align: center;
+   560→     }
+   561→     header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
+   562→     header p { font-size: 0.9rem; opacity: 0.9; max-width: 600px; margin: 0 auto; }
+   563→     .tab-nav {
+   564→         display: flex; background-color: var(--bp-light-gray); padding: 0.5rem; gap: 0.5rem;
+   565→     }
+   566→     .tab-link {
+   567→         flex: 1; padding: 1rem; text-align: center; cursor: pointer;
+   568→         font-weight: 600; font-size: 1rem; color: var(--bp-purple-light);
+   569→         background-color: transparent; border: none; border-radius: 8px;
+   570→         transition: all var(--transition-speed) ease;
+   571→     }
+   572→     .tab-link:hover { background-color: #e1e3eb; color: var(--bp-purple-dark); }
+   573→     .tab-link.active {
+   574→         background-color: var(--bp-white); color: var(--bp-purple-dark);
+   575→         box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+   576→     }
+   577→     .tab-content { display: none; padding: 2rem; animation: fadeIn 0.5s; }
+   578→     .tab-content.active { display: block; }
+   579→     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+   580→     .calculator-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
+   581→     .input-section { display: flex; flex-direction: column; gap: 1.25rem; }
+   582→     .control-group label { font-weight: 600; margin-bottom: 0.75rem; display: block; color: var(--bp-text-dark); }
+   583→     input[type="number"] {
+   584→         width: 100%; padding: 0.85rem 1rem; border-radius: 8px; border: 1px solid #ccc;
+   585→         font-size: 1rem; font-family: 'Poppins', sans-serif; transition: all var(--transition-speed) ease;
+   586→     }
+   587→     input[type="number"]:focus {
+   588→         outline: none; border-color: var(--bp-purple-medium);
+   589→         box-shadow: 0 0 0 3px rgba(112, 47, 138, 0.15);
+   590→     }
+   591→     .currency-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+   592→     .currency-selector button {
+   593→         padding: 0.85rem; border: 1px solid #ddd; background-color: var(--bp-white);
+   594→         cursor: pointer; transition: all var(--transition-speed) ease;
+   595→         font-weight: 500; border-radius: 8px; font-size: 0.95rem;
+   596→     }
+   597→     .currency-selector button.selected {
+   598→         background-color: var(--bp-purple-medium); color: var(--bp-white);
+   599→         border-color: var(--bp-purple-medium); font-weight: 600;
+   600→     }
+   601→     .program-features {
+   602→         margin-top: 1rem; padding: 1.5rem; background-color: var(--bp-light-gray);
+   603→         border-radius: var(--border-radius); font-size: 0.9rem;
+   604→     }
+   605→     .program-features h4 { color: var(--bp-purple-dark); font-weight: 600; margin-bottom: 1rem; }
+   606→     .program-features ul { list-style: none; padding-left: 0; }
+   607→     .program-features li {
+   608→         position: relative; padding-left: 1.75rem; margin-bottom: 0.75rem;
+   609→         color: var(--bp-text-light); line-height: 1.5;
+   610→     }
+   611→     .program-features li::before {
+   612→         content: '✔'; position: absolute; left: 0; top: 2px;
+   613→         color: var(--bp-orange-primary); font-weight: bold; font-size: 1.1em;
+   614→     }
+   615→     .result-section {
+   616→         background-color: var(--bp-white); border-radius: var(--border-radius);
+   617→         padding: 1.5rem; border: 2px solid #dde0e7;
+   618→     }
+   619→     .result-section h3 {
+   620→         text-align: center; margin-bottom: 1rem; color: var(--bp-purple-dark);
+   621→         font-weight: 700; font-size: 1.25rem;
+   622→     }
+   623→     .result-item, .result-item-plazo {
+   624→         display: flex; justify-content: space-between; align-items: center;
+   625→         padding: 0.6rem 0;
+   626→         border-bottom: 1px solid var(--bp-light-gray);
+   627→         font-size: 0.95rem;
+   628→     }
+   629→      .result-section > div > .result-item-plazo:last-of-type,
+   630→      .result-section > .result-item:last-of-type { border-bottom: none; }
+   631→     .result-section span.result-value {
+   632→         font-size: 1.4rem;
+   633→         font-weight: 700;
+   634→         color: var(--bp-purple-dark);
+   635→         font-family: 'Poppins', sans-serif;
+   636→     }
+   637→     .calculation-section .result-value {
+   638→         color: var(--bp-orange-primary);
+   639→     }
+   640→     .breakdown-section {
+   641→         margin-top: 1rem;
+   642→     }
+   643→     .calculate-btn {
+   644→         width: 100%; padding: 1rem; font-size: 1.1rem; font-weight: 700;
+   645→         color: var(--bp-white); background-color: var(--bp-orange-primary);
+   646→         border: none; border-radius: 8px; cursor: pointer;
+   647→         transition: all var(--transition-speed) ease;
+   648→         margin-top: 1rem; box-shadow: 0 4px 15px rgba(255, 121, 0, 0.25);
+   649→     }
+   650→     .calculate-btn:hover {
+   651→         background-color: var(--bp-orange-secondary);
+   652→         transform: translateY(-2px);
+   653→         box-shadow: 0 6px 20px rgba(255, 121, 0, 0.3);
+   654→     }
+   655→     footer { text-align: center; padding: 1.5rem; font-size: 0.9rem; color: var(--bp-text-light); background-color: var(--bp-light-gray); }
+   656→     @media (max-width: 820px) { .calculator-grid { grid-template-columns: 1fr; } }
+   657→     @media (max-width: 480px) {
+   658→         body { padding: 1rem 0.5rem; }
+   659→         header h1 { font-size: 1.5rem; }
+   660→         .tab-link { font-size: 0.9rem; padding: 0.75rem; }
+   661→         .tab-content { padding: 1.5rem; }
+   662→     }
+   663→</style>
+   664→</head>
+   665→<body>
+   666→<main class="main-container">
+   667→<header>
+   668→<h1>Calculadora de Planes de Lealtad BP</h1>
+   669→<p>Recuerde la obligatoriedad de indicarle al cliente las condiciones del respectivo plan de lealtad (Ver ADCON)</p>
+   670→</header>
+   671→<nav class="tab-nav">
+   672→<button class="tab-link active" onclick="openTab(event, 'minicoutas')">BP Mini Cuotas</button>
+   673→<button class="tab-link" onclick="openTab(event, 'tasaCero')">BP Tasa Cero</button>
+   674→<button class="tab-link" onclick="openTab(event, 'compraSaldos')">BP Compra de Saldos</button>
+   675→</nav>
+   676→<!-- Calculadora Minicuotas -->
+   677→<div id="minicoutas" class="tab-content active">
+   678→<div class="calculator-grid">
+   679→<section class="input-section">
+   680→<div class="control-group">
+   681→<label>Moneda</label>
+   682→<div class="currency-selector" id="mc-currency">
+   683→<button class="selected" data-value="CRC">Colones (₡)</button>
+   684→<button data-value="USD">Dólares ($)</button>
+   685→</div>
+   686→</div>
+   687→<div class="control-group">
+   688→<label for="mc-monto-total">Monto Total a Financiar</label>
+   689→<input type="number" id="mc-monto-total" placeholder="Ej: 500000">
+   690→</div>
+   691→<div class="program-features">
+   692→<h4>Características del Programa</h4>
+   693→<ul>
+   694→<li><strong>Tasa de interés:</strong> 24% anual (CRC) y 20% anual (USD).</li>
+   695→<li><strong>Plazos disponibles:</strong> 12, 24, 36 y 48 meses.</li>
+   696→<li><strong>Sin comisión</strong> por pago anticipado (ver tarifario).</li>
+   697→</ul>
+   698→</div>
+   699→<button class="calculate-btn" onclick="calcular('minicoutas')">Calcular Cuotas</button>
+   700→</section>
+   701→<div class="result-column">
+   702→<section class="result-section calculation-section">
+   703→<h3>Cálculo:</h3>
+   704→<div class="result-item">
+   705→<span>Monto a Financiar</span>
+   706→<span id="mc-res-monto" class="result-value">--</span>
+   707→</div>
+   708→</section>
+   709→<section class="result-section breakdown-section">
+   710→<h3>Resultado:</h3>
+   711→<div id="mc-res-cuotas-plazos">
+   712→<div class="result-item-plazo"><span>Cuota a 12 meses</span><span id="mc-res-cuota-12" class="result-value">--</span></div>
+   713→<div class="result-item-plazo"><span>Cuota a 24 meses</span><span id="mc-res-cuota-24" class="result-value">--</span></div>
+   714→<div class="result-item-plazo"><span>Cuota a 36 meses</span><span id="mc-res-cuota-36" class="result-value">--</span></div>
+   715→<div class="result-item-plazo"><span>Cuota a 48 meses</span><span id="mc-res-cuota-48" class="result-value">--</span></div>
+   716→</div>
+   717→</section>
+   718→</div>
+   719→</div>
+   720→</div>
+   721→<!-- Calculadora Tasa Cero -->
+   722→<div id="tasaCero" class="tab-content">
+   723→<div class="calculator-grid">
+   724→<section class="input-section">
+   725→<div class="control-group">
+   726→<label>Moneda</label>
+   727→<div class="currency-selector" id="tc-currency">
+   728→<button class="selected" data-value="CRC">Colones (₡)</button>
+   729→<button data-value="USD">Dólares ($)</button>
+   730→</div>
+   731→</div>
+   732→<div class="control-group">
+   733→<label for="tc-monto-total">Monto Total a Trasladar</label>
+   734→<input type="number" id="tc-monto-total" placeholder="Ej: 120000">
+   735→</div>
+   736→<div class="program-features">
+   737→<h4>Características del Programa</h4>
+   738→<ul>
+   739→<li><strong>Tasa de interés:</strong> 0% durante todo el plazo.</li>
+   740→<li><strong>Plazos disponibles:</strong> 3, 4, 6, 9, 10 y 12 meses.</li>
+   741→<li><strong>Comisión del 3%</strong> por formalización manual o pago anticipado.</li>
+   742→</ul>
+   743→</div>
+   744→<button class="calculate-btn" onclick="calcular('tasaCero')">Calcular Cuotas</button>
+   745→</section>
+   746→<div class="result-column">
+   747→<section class="result-section calculation-section">
+   748→<h3>Cálculo:</h3>
+   749→<div class="result-item">
+   750→<span>Monto a Trasladar</span>
+   751→<span id="tc-res-monto" class="result-value">--</span>
+   752→</div>
+   753→<div class="result-item">
+   754→<span>Comisión (3%)</span>
+   755→<span id="tc-res-comision" class="result-value">--</span>
+   756→</div>
+   757→</section>
+   758→<section class="result-section breakdown-section">
+   759→<h3>Resultado:</h3>
+   760→<div id="tc-res-cuotas-plazos">
+   761→<div class="result-item-plazo"><span>Cuota a 3 meses</span><span id="tc-res-cuota-3" class="result-value">--</span></div>
+   762→<div class="result-item-plazo"><span>Cuota a 4 meses</span><span id="tc-res-cuota-4" class="result-value">--</span></div>
+   763→<div class="result-item-plazo"><span>Cuota a 6 meses</span><span id="tc-res-cuota-6" class="result-value">--</span></div>
+   764→<div class="result-item-plazo"><span>Cuota a 9 meses</span><span id="tc-res-cuota-9" class="result-value">--</span></div>
+   765→<div class="result-item-plazo"><span>Cuota a 10 meses</span><span id="tc-res-cuota-10" class="result-value">--</span></div>
+   766→<div class="result-item-plazo"><span>Cuota a 12 meses</span><span id="tc-res-cuota-12" class="result-value">--</span></div>
+   767→</div>
+   768→</section>
+   769→</div>
+   770→</div>
+   771→</div>
+   772→<!-- Calculadora Compra de Saldos -->
+   773→<div id="compraSaldos" class="tab-content">
+   774→<div class="calculator-grid">
+   775→<section class="input-section">
+   776→<div class="control-group">
+   777→<label>Moneda de la Deuda</label>
+   778→<div class="currency-selector" id="cs-currency">
+   779→<button class="selected" data-value="CRC">Colones (₡)</button>
+   780→<button data-value="USD">Dólares ($)</button>
+   781→</div>
+   782→</div>
+   783→<div class="control-group">
+   784→<label for="cs-monto-total">Monto Total a Comprar</label>
+   785→<input type="number" id="cs-monto-total" placeholder="Ej: 1000000">
+   786→</div>
+   787→<div class="program-features">
+   788→<h4>Características del Programa</h4>
+   789→<ul>
+   790→<li><strong>Tasa preferencial:</strong> 21% anual (CRC) y 18% anual (USD).</li>
+   791→<li><strong>Plazos disponibles:</strong> 12, 24, 36, 48 y 60 meses.</li>
+   792→<li><strong>Comisión del 3%</strong> por pago anticipado.</li>
+   793→</ul>
+   794→</div>
+   795→<button class="calculate-btn" onclick="calcular('compraSaldos')">Calcular Cuotas</button>
+   796→</section>
+   797→<div class="result-column">
+   798→<section class="result-section calculation-section">
+   799→<h3>Cálculo:</h3>
+   800→<div class="result-item">
+   801→<span>Monto a Comprar</span>
+   802→<span id="cs-res-monto" class="result-value">--</span>
+   803→</div>
+   804→</section>
+   805→<section class="result-section breakdown-section">
+   806→<h3>Resultado:</h3>
+   807→<div id="cs-res-cuotas-plazos">
+   808→<div class="result-item-plazo"><span>Cuota a 12 meses</span><span id="cs-res-cuota-12" class="result-value">--</span></div>
+   809→<div class="result-item-plazo"><span>Cuota a 24 meses</span><span id="cs-res-cuota-24" class="result-value">--</span></div>
+   810→<div class="result-item-plazo"><span>Cuota a 36 meses</span><span id="cs-res-cuota-36" class="result-value">--</span></div>
+   811→<div class="result-item-plazo"><span>Cuota a 48 meses</span><span id="cs-res-cuota-48" class="result-value">--</span></div>
+   812→<div class="result-item-plazo"><span>Cuota a 60 meses</span><span id="cs-res-cuota-60" class="result-value">--</span></div>
+   813→</div>
+   814→</section>
+   815→</div>
+   816→</div>
+   817→</div>
+   818→<footer>BP Netcom - 2025</footer>
+   819→</main>
+   820→<script>
+   821→     const TASAS = {
+   822→         minicoutas: { CRC: 0.24, USD: 0.1992 },
+   823→         compraSaldos: { CRC: 0.21, USD: 0.18 }
+   824→     };
+   825→     const PLAZOS = {
+   826→         minicoutas: [12, 24, 36, 48],
+   827→         tasaCero: [3, 4, 6, 9, 10, 12],
+   828→         compraSaldos: [12, 24, 36, 48, 60]
+   829→     };
+   830→     const prefixMap = {
+   831→         minicoutas: 'mc',
+   832→         tasaCero: 'tc',
+   833→         compraSaldos: 'cs'
+   834→     };
+   835→     function openTab(evt, tabName) {
+   836→         document.querySelectorAll(".tab-content").forEach(tc => tc.style.display = "none");
+   837→         document.querySelectorAll(".tab-link").forEach(tl => tl.classList.remove("active"));
+   838→         document.getElementById(tabName).style.display = "block";
+   839→         evt.currentTarget.classList.add("active");
+   840→     }
+   841→     function setupSelectors() {
+   842→         ['mc', 'tc', 'cs'].forEach(prefix => {
+   843→             document.getElementById(`${prefix}-currency`).addEventListener('click', function(e) {
+   844→                 if (e.target.tagName === 'BUTTON') {
+   845→                     this.querySelector('.selected').classList.remove('selected');
+   846→                     e.target.classList.add('selected');
+   847→                 }
+   848→             });
+   849→         });
+   850→     }
+   851→     function setupEnterKeyListeners() {
+   852→         ['mc', 'tc', 'cs'].forEach(prefix => {
+   853→             const program = Object.keys(prefixMap).find(key => prefixMap[key] === prefix);
+   854→             document.getElementById(`${prefix}-monto-total`).addEventListener('keyup', function(event) {
+   855→                 if (event.key === 'Enter') {
+   856→                     event.preventDefault();
+   857→                     calcular(program);
+   858→                 }
+   859→             });
+   860→         });
+   861→     }
+   862→     function resetResults(prefix) {
+   863→         const programa = Object.keys(prefixMap).find(key => prefixMap[key] === prefix);
+   864→         document.getElementById(`${prefix}-res-monto`).textContent = '--';
+   865→         if (prefix === 'tc') {
+   866→              document.getElementById('tc-res-comision').textContent = '--';
+   867→         }
+   868→         PLAZOS[programa].forEach(plazo => {
+   869→             const el = document.getElementById(`${prefix}-res-cuota-${plazo}`);
+   870→             if (el) el.textContent = '--';
+   871→         });
+   872→     }
+   873→     function calcular(programa) {
+   874→         const prefix = prefixMap[programa];
+   875→         if (!prefix) return;
+   876→         resetResults(prefix);
+   877→         const currency = document.querySelector(`#${prefix}-currency .selected`).dataset.value;
+   878→         const plazosDisponibles = PLAZOS[programa];
+   879→         const montoTotal = parseFloat(document.getElementById(`${prefix}-monto-total`).value);
+   880→         if (isNaN(montoTotal) || montoTotal <= 0) {
+   881→             return;
+   882→         }
+   883→         let resultado = { monto: montoTotal, cuotasPorPlazo: [] };
+   884→         switch (programa) {
+   885→             case 'minicoutas':
+   886→                 const tasaAnualMC = TASAS.minicoutas[currency];
+   887→                 const tasaMensualMC = tasaAnualMC / 12;
+   888→                 resultado.cuotasPorPlazo = plazosDisponibles.map(plazo => ({
+   889→                     plazo,
+   890→                     cuota: calcularCuotaAmortizacion(montoTotal, tasaMensualMC, plazo)
+   891→                 }));
+   892→                 break;
+   893→             case 'tasaCero':
+   894→                 resultado.comision = montoTotal * 0.03;
+   895→                 resultado.cuotasPorPlazo = plazosDisponibles.map(plazo => ({
+   896→                     plazo,
+   897→                     cuota: montoTotal / plazo
+   898→                 }));
+   899→                 break;
+   900→             case 'compraSaldos':
+   901→                 const tasaAnualCS = TASAS.compraSaldos[currency];
+   902→                 const tasaMensualCS = tasaAnualCS / 12;
+   903→                 resultado.cuotasPorPlazo = plazosDisponibles.map(plazo => ({
+   904→                     plazo,
+   905→                     cuota: calcularCuotaAmortizacion(montoTotal, tasaMensualCS, plazo)
+   906→                 }));
+   907→                 break;
+   908→         }
+   909→         mostrarResultados(prefix, resultado, currency);
+   910→     }
+   911→     function calcularCuotaAmortizacion(principal, tasaMensual, periodos) {
+   912→         if (tasaMensual === 0) return principal / periodos;
+   913→         const factor = Math.pow(1 + tasaMensual, periodos);
+   914→         return principal * (tasaMensual * factor) / (factor - 1);
+   915→     }
+   916→     function mostrarResultados(prefix, resultado, currency) {
+   917→         document.getElementById(`${prefix}-res-monto`).textContent = formatCurrency(resultado.monto, currency);
+   918→         if (prefix === 'tc') {
+   919→             document.getElementById(`${prefix}-res-comision`).textContent = formatCurrency(resultado.comision, currency);
+   920→         }
+   921→         resultado.cuotasPorPlazo.forEach(item => {
+   922→             const resultSpan = document.getElementById(`${prefix}-res-cuota-${item.plazo}`);
+   923→             if (resultSpan) {
+   924→                 resultSpan.textContent = formatCurrency(item.cuota, currency);
+   925→             }
+   926→         });
+   927→     }
+   928→     function formatCurrency(value, currency) {
+   929→          if (isNaN(value) || value === null) return '--';
+   930→         return new Intl.NumberFormat('es-CR', {
+   931→             style: 'currency',
+   932→             currency: currency,
+   933→             minimumFractionDigits: 2,
+   934→             maximumFractionDigits: 2
+   935→         }).format(value);
+   936→     }
+   937→     document.addEventListener('DOMContentLoaded', () => {
+   938→         setupSelectors();
+   939→         setupEnterKeyListeners();
+   940→     });
+   941→</script>
+   942→</body>
+   943→</html>
+   944→
+   945→una vez generado el presupuesto quiero que me de la opcion de exportarlo en un excel xlxs, pdf o json
+   946→quiero que me de la opcion dep oder modificarlo si cargo el archivo json así lo trabajamos sin base de datos totalmente serverless pero esto unicamente para los presupuestos no para las proyecciones,
+   947→
+   948→3. que permita calcular el aguinaldo ingresando los 12 salarios del mes y siguiendo la normativa de aguinaldos de costa rica
+   949→
+   950→4. que analices mi logica de funcionalidades y agreges cantas más requiera para ser un servicio robusto para presupeustar, guiar finanzas, consejos financieros, etc ah si, una seccion de consejos financieros tipoo carrosuel estaría fantastico
+   951→
+   952→finalmente crea el proyecto en. E:\Mis proyectos

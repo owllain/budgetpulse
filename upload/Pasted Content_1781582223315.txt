@@ -1,0 +1,952 @@
+"Build a landing page for my SaaS product" "Diseña un website para analytics de buudget mensual" "Crea una app de moderna responsive usable tanto en escritorio como mobile funcionalidades:
+
+1. Crear presupuesto basico
+-seleccionar quincena o mes
+-registrar ingresos (salarios, otros ingresos, etc)
+-registrar gastos fijos (recibos de luz, agua, alquiler casa, etc)
+-registrar obligacioneos crediticias (tarjetas de crédito, prestamos, financiamientos)
+-registrar "fondos de emergencia" opcional
+-registrar otros consumos
+2. crear proyecciones:, -deudua tarjeta de créditom, tasa de intres, calclo con formula de interes compuesto que me diga cuanto pagaré en intereses en x periodo
+
+-cuanto pagare por nu prestamo en x plazo a x taza de interes segun el uso de intereses en costa rica
+-calculo de financiamientos: 
+monto total:
+a x plazo
+tasa de interes: 
+cuanto apgaria por mes
+
+aca tengo ejemplos de la logica simple uqe hice en nu html: 
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Definitivo TC | Banco Popular</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], display: ['Poppins', 'sans-serif'], },
+                    colors: {
+                        bp: { purple: '#651480', purplelight: '#8b2eab', purplebg: '#f8f4fa', orange: '#FF7900', orangedark: '#e66d00', }
+                    },
+                    boxShadow: { 'soft': '0 10px 40px -10px rgba(0,0,0,0.08)', 'floating': '0 20px 40px -10px rgba(101, 20, 128, 0.15)', }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .expandable { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); max-height: 0; opacity: 0; overflow: hidden; }
+        .expandable.open { max-height: 400px; opacity: 1; margin-top: 1rem; overflow: visible; }
+        
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        
+        .pulse-update { animation: pulseGreen 0.5s ease-out; }
+        @keyframes pulseGreen { 0% { color: #68D391; transform: scale(1.05); } 100% { color: inherit; transform: scale(1); } }
+
+        /* Estilos para el Switch Moderno */
+        .modern-switch {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .modern-switch input[type="checkbox"] {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+
+        .switch-track {
+            width: 3.5rem; /* w-14 */
+            height: 1.75rem; /* h-7 */
+            background-color: #cbd5e1; /* slate-300 */
+            border-radius: 9999px;
+            transition: background-color 0.3s ease;
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding: 0.125rem; /* p-0.5 */
+        }
+
+        .switch-thumb {
+            width: 1.5rem; /* w-6 */
+            height: 1.5rem; /* h-6 */
+            background-color: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform: translateX(0);
+        }
+
+        /* Icono dentro del thumb (opcional, para darle más estilo) */
+        .switch-icon {
+            width: 12px;
+            height: 12px;
+            color: #cbd5e1;
+            transition: color 0.3s ease;
+        }
+
+        .modern-switch input[type="checkbox"]:checked + .switch-track {
+            background-color: #FF7900; /* bp-orange */
+        }
+
+        .modern-switch input[type="checkbox"]:checked + .switch-track .switch-thumb {
+            transform: translateX(1.75rem); /* Mover a la derecha */
+        }
+
+        .modern-switch input[type="checkbox"]:checked + .switch-track .switch-icon {
+            color: #FF7900;
+        }
+        
+        .modern-switch input[type="checkbox"]:focus-visible + .switch-track {
+            outline: 2px solid #651480;
+            outline-offset: 2px;
+        }
+
+        /* Estilo para las tarjetas de los switches cuando están activos */
+        .switch-card {
+            transition: all 0.3s ease;
+        }
+        .switch-card.active {
+            border-color: #FF7900;
+            background-color: #fffaf0; /* Fondo naranja muy suave */
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- Header -->
+    <header class="bg-bp-purple text-white py-6 shadow-md relative z-10">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <i data-lucide="microscope" class="w-8 h-8 text-bp-orange"></i>
+                <div>
+                    <h1 class="font-display text-xl sm:text-2xl font-bold tracking-tight">Simulador BP Definitivo</h1>
+                    <p class="text-bp-purplebg text-xs sm:text-sm opacity-90">Ingeniería inversa con Modo Avanzado</p>
+                </div>
+            </div>
+            
+            <div class="bg-bp-purplelight/50 p-1 rounded-lg flex border border-white/20 self-end sm:self-auto">
+                <button id="btn-crc" onclick="setMoneda('CRC')" class="px-3 py-1.5 rounded-md text-sm font-bold transition-colors bg-white text-bp-purple shadow-sm">CRC ₡</button>
+                <button id="btn-usd" onclick="setMoneda('USD')" class="px-3 py-1.5 rounded-md text-sm font-bold transition-colors text-white hover:bg-white/10">USD $</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow py-8 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- CONTROLES -->
+            <div class="lg:col-span-7 space-y-5">
+                
+                <!-- Base de la Deuda -->
+                <div class="bg-white rounded-2xl shadow-soft p-6 border border-slate-100">
+                    <h2 class="font-display font-semibold text-lg text-slate-800 flex items-center gap-2 mb-5">
+                        <i data-lucide="wallet" class="w-5 h-5 text-bp-purple"></i>
+                        Datos Principales
+                    </h2>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Saldo Principal Adeudado</label>
+                            <div class="relative mt-1">
+                                <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400 currency-symbol">₡</span>
+                                <input type="number" id="inp-principal" placeholder="0.00" class="w-full pl-10 pr-4 py-3 font-medium border border-slate-200 rounded-xl focus:ring-2 focus:ring-bp-purple focus:border-bp-purple bg-slate-50 focus:bg-white transition-all text-lg" oninput="calcular()">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Tasa Anual (%)</label>
+                                <input type="number" id="inp-tasa" value="27.50" step="0.01" class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-bp-purple transition-all bg-slate-50 text-slate-700 font-medium" oninput="calcular()">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Cargos y Administrativos</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 currency-symbol">₡</span>
+                                    <input type="number" id="inp-cargos" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-bp-purple transition-all bg-slate-50" oninput="calcular()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Programas de Cuotas (NUEVO DISEÑO DE SWITCHES) -->
+                <div class="bg-white rounded-2xl shadow-soft p-6 border border-slate-100 space-y-4">
+                    <h2 class="font-display font-semibold text-lg text-slate-800 flex items-center gap-2 mb-4">
+                        <i data-lucide="layers" class="w-5 h-5 text-bp-purple"></i>
+                        Planes de Lealtad (Al 100%)
+                    </h2>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Switch Tasa Cero -->
+                        <div id="card-tasa0" class="switch-card p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+                            <div class="flex items-center justify-between mb-2">
+                                <label for="chk-tasa0" class="font-medium text-slate-800 text-sm cursor-pointer select-none">
+                                    Tasa Cero
+                                </label>
+                                <label class="modern-switch">
+                                    <input type="checkbox" id="chk-tasa0" onchange="toggleSectionModern('tasa0')">
+                                    <div class="switch-track">
+                                        <div class="switch-thumb">
+                                            <!-- Icono SVG (Check) -->
+                                            <svg class="switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            <div id="container-tasa0" class="expandable">
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Cuota mensual facturada</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 currency-symbol">₡</span>
+                                    <input type="number" id="inp-tasa0" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-bp-orange transition-all bg-white" oninput="calcular()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Switch Minicuotas -->
+                        <div id="card-minicuotas" class="switch-card p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+                            <div class="flex items-center justify-between mb-2">
+                                <label for="chk-minicuotas" class="font-medium text-slate-800 text-sm cursor-pointer select-none">
+                                    BP Minicuotas
+                                </label>
+                                <label class="modern-switch">
+                                    <input type="checkbox" id="chk-minicuotas" onchange="toggleSectionModern('minicuotas')">
+                                    <div class="switch-track">
+                                        <div class="switch-thumb">
+                                             <svg class="switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            <div id="container-minicuotas" class="expandable">
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Cuota mensual facturada</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 currency-symbol">₡</span>
+                                    <input type="number" id="inp-minicuotas" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-bp-orange transition-all bg-white" oninput="calcular()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MODO EXPERTO -->
+                <div class="bg-slate-800 rounded-2xl shadow-soft p-6 border border-slate-700 text-white">
+                    <div class="flex items-center justify-between cursor-pointer" onclick="document.getElementById('chk-experto').click()">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="settings-2" class="w-5 h-5 text-bp-orange"></i>
+                            <div>
+                                <h3 class="font-display font-semibold text-white">Modo Experto</h3>
+                                <p class="text-xs text-slate-400">Calibración avanzada</p>
+                            </div>
+                        </div>
+                        <label class="modern-switch" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="chk-experto" onchange="toggleSectionModern('experto')">
+                            <div class="switch-track" style="background-color: #475569;"> <!-- Tono más oscuro para fondo oscuro -->
+                                <div class="switch-thumb">
+                                    <svg class="switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <div id="container-experto" class="expandable">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-700">
+                            <!-- Saldo Promedio -->
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Saldo Promedio Diario (Para cálculo exacto de interés)</label>
+                                <p class="text-[10px] text-slate-400 mb-2">Si se deja vacío, se usará el Saldo Principal.</p>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 currency-symbol">₡</span>
+                                    <input type="number" id="inp-promedio" placeholder="Mismo que el principal" class="w-full pl-8 pr-3 py-2 border border-slate-600 bg-slate-700 rounded-lg focus:ring-2 focus:ring-bp-orange text-white placeholder-slate-400 transition-all" oninput="calcular()">
+                                </div>
+                            </div>
+                            
+                            <!-- Sobregiro -->
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Sobregiro (Al 100%)</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 currency-symbol">₡</span>
+                                    <input type="number" id="inp-sobregiro" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-600 bg-slate-700 rounded-lg focus:ring-2 focus:ring-bp-orange text-white transition-all" oninput="calcular()">
+                                </div>
+                            </div>
+
+                            <!-- Mora -->
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Saldo en Mora (Al 100%)</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 currency-symbol">₡</span>
+                                    <input type="number" id="inp-mora" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-600 bg-slate-700 rounded-lg focus:ring-2 focus:ring-bp-orange text-white transition-all" oninput="calcular()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RESULTADOS -->
+            <div class="lg:col-span-5 relative">
+                <div class="sticky top-6 space-y-5">
+                    
+                    <!-- Tarjeta Principal Pago Mínimo -->
+                    <div class="bg-white rounded-2xl shadow-floating p-6 border-t-4 border-bp-orange relative overflow-hidden">
+                        <div class="flex justify-between items-start mb-1">
+                            <h2 class="font-display font-bold text-slate-800 text-lg">Pago Mínimo</h2>
+                            <span id="badge-piso" class="hidden bg-red-100 text-red-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Aplica Piso Base</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-4">Total a pagar para no caer en mora</p>
+                        
+                        <p id="res-minimo" class="font-display text-4xl sm:text-5xl font-extrabold text-bp-orange tracking-tight mb-6">
+                            ₡0.00
+                        </p>
+
+                        <div class="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm">
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-500">Amortización (P/60)</span>
+                                <span id="res-amortizacion" class="font-medium text-slate-700">₡0.00</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-500" title="Calculado sobre saldo promedio si se indicó">Intereses</span>
+                                <span id="res-intereses" class="font-medium text-slate-700">₡0.00</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-500">Cargos Admin.</span>
+                                <span id="res-cargos" class="font-medium text-slate-700">₡0.00</span>
+                            </div>
+                            
+                            <div id="row-sobregiro" class="hidden flex justify-between items-center text-red-600 font-medium pt-1">
+                                <span>Sobregiro + Mora</span>
+                                <span id="res-sobregiro">₡0.00</span>
+                            </div>
+
+                            <div class="flex justify-between items-center border-t border-slate-200 pt-2 mt-2">
+                                <span class="text-slate-600 font-semibold">Cuotas (TC / MC)</span>
+                                <span id="res-cuotas" class="font-bold text-bp-purple">₡0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta Pago de Contado -->
+                    <div class="bg-gradient-to-br from-bp-purple to-bp-purplelight rounded-2xl shadow-soft p-6 text-white">
+                        <div class="flex justify-between items-center mb-2">
+                            <h2 class="font-display font-semibold text-lg">Pago de Contado</h2>
+                            <i data-lucide="check-circle" class="w-5 h-5 text-bp-purplebg opacity-80"></i>
+                        </div>
+                        <p class="text-[11px] text-bp-purplebg/80 mb-3">Cancele este monto para no generar nuevos intereses de financiamiento.</p>
+                        <p id="res-contado" class="font-display text-3xl font-bold text-white">
+                            ₡0.00
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        let moneda = 'CRC';
+        const config = {
+            'CRC': { simbolo: '₡', tasaDefecto: 27.50, pisoMinimo: 4000 },
+            'USD': { simbolo: '$', tasaDefecto: 20.00, pisoMinimo: 10 } 
+        };
+
+        function setMoneda(nuevaMoneda) {
+            moneda = nuevaMoneda;
+            
+            const btnCrc = document.getElementById('btn-crc');
+            const btnUsd = document.getElementById('btn-usd');
+            if (moneda === 'CRC') {
+                btnCrc.className = 'px-3 py-1.5 rounded-md text-sm font-bold transition-colors bg-white text-bp-purple shadow-sm';
+                btnUsd.className = 'px-3 py-1.5 rounded-md text-sm font-bold transition-colors text-white hover:bg-white/10';
+            } else {
+                btnUsd.className = 'px-3 py-1.5 rounded-md text-sm font-bold transition-colors bg-white text-bp-purple shadow-sm';
+                btnCrc.className = 'px-3 py-1.5 rounded-md text-sm font-bold transition-colors text-white hover:bg-white/10';
+            }
+
+            document.querySelectorAll('.currency-symbol').forEach(el => el.innerText = config[moneda].simbolo);
+            document.getElementById('inp-tasa').value = config[moneda].tasaDefecto;
+            
+            calcular();
+        }
+
+        // Nueva función para manejar el switch moderno y sus efectos
+        function toggleSectionModern(section) {
+            const chk = document.getElementById(`chk-${section}`);
+            const container = document.getElementById(`container-${section}`);
+            
+            // Efectos visuales para las tarjetas de lealtad
+            if(section === 'tasa0' || section === 'minicuotas') {
+                 const card = document.getElementById(`card-${section}`);
+                 if(chk.checked) {
+                     card.classList.add('active');
+                 } else {
+                     card.classList.remove('active');
+                 }
+            }
+
+            if (chk.checked) {
+                container.classList.add('open');
+                // Pequeño retraso para dar foco después de la animación
+                if (section !== 'experto') {
+                    setTimeout(() => {
+                        document.getElementById(`inp-${section}`).focus();
+                    }, 300);
+                }
+            } else {
+                container.classList.remove('open');
+                // Limpiar valores
+                if(section === 'experto') {
+                    document.getElementById('inp-promedio').value = '';
+                    document.getElementById('inp-sobregiro').value = '';
+                    document.getElementById('inp-mora').value = '';
+                } else {
+                     document.getElementById(`inp-${section}`).value = '';
+                }
+                calcular();
+            }
+        }
+
+        function formato(valor) {
+            if (isNaN(valor) || valor < 0) valor = 0;
+            return new Intl.NumberFormat('es-CR', {
+                style: 'currency', currency: moneda, minimumFractionDigits: 2
+            }).format(valor);
+        }
+
+        function animateValue(id) {
+            const el = document.getElementById(id);
+            el.classList.remove('pulse-update');
+            void el.offsetWidth;
+            el.classList.add('pulse-update');
+        }
+
+        function calcular() {
+            const principal = parseFloat(document.getElementById('inp-principal').value) || 0;
+            const tasaAnual = parseFloat(document.getElementById('inp-tasa').value) || 0;
+            const cargos = parseFloat(document.getElementById('inp-cargos').value) || 0;
+            
+            // Solo tomar valores si el switch está activo
+            const cuotaT0 = document.getElementById('chk-tasa0').checked ? (parseFloat(document.getElementById('inp-tasa0').value) || 0) : 0;
+            const cuotaMC = document.getElementById('chk-minicuotas').checked ? (parseFloat(document.getElementById('inp-minicuotas').value) || 0) : 0;
+            const totalCuotas = cuotaT0 + cuotaMC;
+
+            const expertoActivo = document.getElementById('chk-experto').checked;
+            const inpPromedio = document.getElementById('inp-promedio').value;
+            const promedio = (expertoActivo && inpPromedio !== '') ? parseFloat(inpPromedio) : principal;
+            
+            const sobregiro = expertoActivo ? (parseFloat(document.getElementById('inp-sobregiro').value) || 0) : 0;
+            const mora = expertoActivo ? (parseFloat(document.getElementById('inp-mora').value) || 0) : 0;
+            const obligacionesExtra = sobregiro + mora;
+
+            const tasaMensual = (tasaAnual / 100) / 12;
+            const intereses = promedio * tasaMensual;
+            let amortizacion = principal / 60; 
+            
+            const piso = config[moneda].pisoMinimo;
+            let subtotalMinimo = amortizacion + intereses + cargos;
+            const badgePiso = document.getElementById('badge-piso');
+            
+            if (principal > 0 && subtotalMinimo < piso && subtotalMinimo > 0) {
+                const diferencia = piso - subtotalMinimo;
+                amortizacion += diferencia; 
+                subtotalMinimo = piso;
+                badgePiso.classList.remove('hidden');
+            } else {
+                badgePiso.classList.add('hidden');
+            }
+
+            const pagoMinimoTotal = subtotalMinimo + totalCuotas + obligacionesExtra;
+            const pagoContadoTotal = principal + intereses + cargos + totalCuotas + obligacionesExtra;
+
+            document.getElementById('res-minimo').innerText = formato(pagoMinimoTotal);
+            document.getElementById('res-contado').innerText = formato(pagoContadoTotal);
+            
+            document.getElementById('res-amortizacion').innerText = formato(amortizacion);
+            document.getElementById('res-intereses').innerText = formato(intereses);
+            document.getElementById('res-cargos').innerText = formato(cargos);
+            document.getElementById('res-cuotas').innerText = formato(totalCuotas);
+
+            const rowSobregiro = document.getElementById('row-sobregiro');
+            if (obligacionesExtra > 0) {
+                rowSobregiro.classList.remove('hidden');
+                document.getElementById('res-sobregiro').innerText = formato(obligacionesExtra);
+            } else {
+                rowSobregiro.classList.add('hidden');
+            }
+
+            animateValue('res-minimo');
+            animateValue('res-contado');
+        }
+
+        window.onload = calcular;
+    </script>
+</body>
+</html>
+
+y 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora Financiera BP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+     :root {
+         --bp-purple-dark: #651480;
+         --bp-purple-medium: #702F8A;
+         --bp-purple-light: #7C51A1;
+         --bp-orange-primary: #FF7900;
+         --bp-orange-secondary: #F47920;
+         --bp-white: #FFFFFF;
+         --bp-light-gray: #EDEEF4;
+         --bp-text-dark: #333;
+         --bp-text-light: #666;
+         --border-radius: 12px;
+         --card-shadow: 0 15px 35px rgba(50, 50, 93, 0.1), 0 5px 15px rgba(0, 0, 0, 0.07);
+         --transition-speed: 0.3s;
+     }
+     * { box-sizing: border-box; margin: 0; padding: 0; }
+     body {
+         font-family: 'Poppins', sans-serif;
+         background-color: var(--bp-light-gray);
+         color: var(--bp-text-dark);
+         display: flex;
+         justify-content: center;
+         align-items: flex-start;
+         min-height: 100vh;
+         padding: 2rem 1rem;
+     }
+     .main-container {
+         width: 100%;
+         max-width: 850px;
+         background-color: var(--bp-white);
+         border-radius: var(--border-radius);
+         box-shadow: var(--card-shadow);
+         overflow: hidden;
+     }
+     header {
+         background-color: var(--bp-purple-dark);
+         color: var(--bp-white);
+         padding: 1.5rem 2rem;
+         text-align: center;
+     }
+     header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
+     header p { font-size: 0.9rem; opacity: 0.9; max-width: 600px; margin: 0 auto; }
+     .tab-nav {
+         display: flex; background-color: var(--bp-light-gray); padding: 0.5rem; gap: 0.5rem;
+     }
+     .tab-link {
+         flex: 1; padding: 1rem; text-align: center; cursor: pointer;
+         font-weight: 600; font-size: 1rem; color: var(--bp-purple-light);
+         background-color: transparent; border: none; border-radius: 8px;
+         transition: all var(--transition-speed) ease;
+     }
+     .tab-link:hover { background-color: #e1e3eb; color: var(--bp-purple-dark); }
+     .tab-link.active {
+         background-color: var(--bp-white); color: var(--bp-purple-dark);
+         box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+     }
+     .tab-content { display: none; padding: 2rem; animation: fadeIn 0.5s; }
+     .tab-content.active { display: block; }
+     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+     .calculator-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
+     .input-section { display: flex; flex-direction: column; gap: 1.25rem; }
+     .control-group label { font-weight: 600; margin-bottom: 0.75rem; display: block; color: var(--bp-text-dark); }
+     input[type="number"] {
+         width: 100%; padding: 0.85rem 1rem; border-radius: 8px; border: 1px solid #ccc;
+         font-size: 1rem; font-family: 'Poppins', sans-serif; transition: all var(--transition-speed) ease;
+     }
+     input[type="number"]:focus {
+         outline: none; border-color: var(--bp-purple-medium);
+         box-shadow: 0 0 0 3px rgba(112, 47, 138, 0.15);
+     }
+     .currency-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+     .currency-selector button {
+         padding: 0.85rem; border: 1px solid #ddd; background-color: var(--bp-white);
+         cursor: pointer; transition: all var(--transition-speed) ease;
+         font-weight: 500; border-radius: 8px; font-size: 0.95rem;
+     }
+     .currency-selector button.selected {
+         background-color: var(--bp-purple-medium); color: var(--bp-white);
+         border-color: var(--bp-purple-medium); font-weight: 600;
+     }
+     .program-features {
+         margin-top: 1rem; padding: 1.5rem; background-color: var(--bp-light-gray);
+         border-radius: var(--border-radius); font-size: 0.9rem;
+     }
+     .program-features h4 { color: var(--bp-purple-dark); font-weight: 600; margin-bottom: 1rem; }
+     .program-features ul { list-style: none; padding-left: 0; }
+     .program-features li {
+         position: relative; padding-left: 1.75rem; margin-bottom: 0.75rem;
+         color: var(--bp-text-light); line-height: 1.5;
+     }
+     .program-features li::before {
+         content: '✔'; position: absolute; left: 0; top: 2px;
+         color: var(--bp-orange-primary); font-weight: bold; font-size: 1.1em;
+     }
+     .result-section {
+         background-color: var(--bp-white); border-radius: var(--border-radius);
+         padding: 1.5rem; border: 2px solid #dde0e7;
+     }
+     .result-section h3 {
+         text-align: center; margin-bottom: 1rem; color: var(--bp-purple-dark);
+         font-weight: 700; font-size: 1.25rem;
+     }
+     .result-item, .result-item-plazo {
+         display: flex; justify-content: space-between; align-items: center;
+         padding: 0.6rem 0;
+         border-bottom: 1px solid var(--bp-light-gray);
+         font-size: 0.95rem;
+     }
+      .result-section > div > .result-item-plazo:last-of-type,
+      .result-section > .result-item:last-of-type { border-bottom: none; }
+     .result-section span.result-value {
+         font-size: 1.4rem;
+         font-weight: 700;
+         color: var(--bp-purple-dark);
+         font-family: 'Poppins', sans-serif;
+     }
+     .calculation-section .result-value {
+         color: var(--bp-orange-primary);
+     }
+     .breakdown-section {
+         margin-top: 1rem;
+     }
+     .calculate-btn {
+         width: 100%; padding: 1rem; font-size: 1.1rem; font-weight: 700;
+         color: var(--bp-white); background-color: var(--bp-orange-primary);
+         border: none; border-radius: 8px; cursor: pointer;
+         transition: all var(--transition-speed) ease;
+         margin-top: 1rem; box-shadow: 0 4px 15px rgba(255, 121, 0, 0.25);
+     }
+     .calculate-btn:hover {
+         background-color: var(--bp-orange-secondary);
+         transform: translateY(-2px);
+         box-shadow: 0 6px 20px rgba(255, 121, 0, 0.3);
+     }
+     footer { text-align: center; padding: 1.5rem; font-size: 0.9rem; color: var(--bp-text-light); background-color: var(--bp-light-gray); }
+     @media (max-width: 820px) { .calculator-grid { grid-template-columns: 1fr; } }
+     @media (max-width: 480px) {
+         body { padding: 1rem 0.5rem; }
+         header h1 { font-size: 1.5rem; }
+         .tab-link { font-size: 0.9rem; padding: 0.75rem; }
+         .tab-content { padding: 1.5rem; }
+     }
+</style>
+</head>
+<body>
+<main class="main-container">
+<header>
+<h1>Calculadora de Planes de Lealtad BP</h1>
+<p>Recuerde la obligatoriedad de indicarle al cliente las condiciones del respectivo plan de lealtad (Ver ADCON)</p>
+</header>
+<nav class="tab-nav">
+<button class="tab-link active" onclick="openTab(event, 'minicoutas')">BP Mini Cuotas</button>
+<button class="tab-link" onclick="openTab(event, 'tasaCero')">BP Tasa Cero</button>
+<button class="tab-link" onclick="openTab(event, 'compraSaldos')">BP Compra de Saldos</button>
+</nav>
+<!-- Calculadora Minicuotas -->
+<div id="minicoutas" class="tab-content active">
+<div class="calculator-grid">
+<section class="input-section">
+<div class="control-group">
+<label>Moneda</label>
+<div class="currency-selector" id="mc-currency">
+<button class="selected" data-value="CRC">Colones (₡)</button>
+<button data-value="USD">Dólares ($)</button>
+</div>
+</div>
+<div class="control-group">
+<label for="mc-monto-total">Monto Total a Financiar</label>
+<input type="number" id="mc-monto-total" placeholder="Ej: 500000">
+</div>
+<div class="program-features">
+<h4>Características del Programa</h4>
+<ul>
+<li><strong>Tasa de interés:</strong> 24% anual (CRC) y 20% anual (USD).</li>
+<li><strong>Plazos disponibles:</strong> 12, 24, 36 y 48 meses.</li>
+<li><strong>Sin comisión</strong> por pago anticipado (ver tarifario).</li>
+</ul>
+</div>
+<button class="calculate-btn" onclick="calcular('minicoutas')">Calcular Cuotas</button>
+</section>
+<div class="result-column">
+<section class="result-section calculation-section">
+<h3>Cálculo:</h3>
+<div class="result-item">
+<span>Monto a Financiar</span>
+<span id="mc-res-monto" class="result-value">--</span>
+</div>
+</section>
+<section class="result-section breakdown-section">
+<h3>Resultado:</h3>
+<div id="mc-res-cuotas-plazos">
+<div class="result-item-plazo"><span>Cuota a 12 meses</span><span id="mc-res-cuota-12" class="result-value">--</span></div>
+<div class="result-item-plazo"><span>Cuota a 24 meses</span><span id="mc-res-cuota-24" class="result-value">--</span></div>
+<div class="result-item-plazo"><span>Cuota a 36 meses</span><span id="mc-res-cuota-36" class="result-value">--</span></div>
+<div class="result-item-plazo"><span>Cuota a 48 meses</span><span id="mc-res-cuota-48" class="result-value">--</span></div>
+</div>
+</section>
+</div>
+</div>
+</div>
+<!-- Calculadora Tasa Cero -->
+<div id="tasaCero" class="tab-content">
+<div class="calculator-grid">
+<section class="input-section">
+<div class="control-group">
+<label>Moneda</label>
+<div class="currency-selector" id="tc-currency">
+<button class="selected" data-value="CRC">Colones (₡)</button>
+<button data-value="USD">Dólares ($)</button>
+</div>
+</div>
+<div class="control-group">
+<label for="tc-monto-total">Monto Total a Trasladar</label>
+<input type="number" id="tc-monto-total" placeholder="Ej: 120000">
+</div>
+<div class="program-features">
+<h4>Características del Programa</h4>
+<ul>
+<li><strong>Tasa de interés:</strong> 0% durante todo el plazo.</li>
+<li><strong>Plazos disponibles:</strong> 3, 4, 6, 9, 10 y 12 meses.</li>
+<li><strong>Comisión del 3%</strong> por formalización manual o pago anticipado.</li>
+</ul>
+</div>
+<button class="calculate-btn" onclick="calcular('tasaCero')">Calcular Cuotas</button>
+</section>
+<div class="result-column">
+<section class="result-section calculation-section">
+<h3>Cálculo:</h3>
+<div class="result-item">
+<span>Monto a Trasladar</span>
+<span id="tc-res-monto" class="result-value">--</span>
+</div>
+<div class="result-item">
+<span>Comisión (3%)</span>
+<span id="tc-res-comision" class="result-value">--</span>
+</div>
+</section>
+<section class="result-section breakdown-section">
+<h3>Resultado:</h3>
+<div id="tc-res-cuotas-plazos">
+<div class="result-item-plazo"><span>Cuota a 3 meses</span><span id="tc-res-cuota-3" class="result-value">--</span></div>
+<div class="result-item-plazo"><span>Cuota a 4 meses</span><span id="tc-res-cuota-4" class="result-value">--</span></div>
+<div class="result-item-plazo"><span>Cuota a 6 meses</span><span id="tc-res-cuota-6" class="result-value">--</span></div>
+<div class="result-item-plazo"><span>Cuota a 9 meses</span><span id="tc-res-cuota-9" class="result-value">--</span></div>
+<div class="result-item-plazo"><span>Cuota a 10 meses</span><span id="tc-res-cuota-10" class="result-value">--</span></div>
+<div class="result-item-plazo"><span>Cuota a 12 meses</span><span id="tc-res-cuota-12" class="result-value">--</span></div>
+</div>
+</section>
+</div>
+</div>
+</div>
+<!-- Calculadora Compra de Saldos -->
+<div id="compraSaldos" class="tab-content">
+<div class="calculator-grid">
+<section class="input-section">
+<div class="control-group">
+<label>Moneda de la Deuda</label>
+<div class="currency-selector" id="cs-currency">
+<button class="selected" data-value="CRC">Colones (₡)</button>
+<button data-value="USD">Dólares ($)</button>
+</div>
+</div>
+<div class="control-group">
+<label for="cs-monto-total">Monto Total a Comprar</label>
+<input type="number" id="cs-monto-total" placeholder="Ej: 1000000">
+</div>
+<div class="program-features">
+<h4>Características del Programa</h4>
+<ul>
+<li><strong>Tasa preferencial:</strong> 21% anual (CRC) y 18% anual (USD).</li>
+<li><strong>Plazos disponibles:</strong> 12, 24, 36, 48 y 60 meses.</li>
+<li><strong>Comisión del 3%</strong> por pago anticipado.</li>
+</ul>
+</div>
+<button class="calculate-btn" onclick="calcular('compraSaldos')">Calcular Cuotas</button>
+</section>
+<div class="result-column">
+<section class="result-section calculation-section">
+<h3>Cálculo:</h3>
+<div class="result-item">
+<span>Monto a Comprar</span>
+<span id="cs-res-monto" class="result-value">--</span>
+</div>
+</section>
+<section class="result-section breakdown-section">
+<h3>Resultado:</h3>
+<div id="cs-res-cuotas-plazos">
+<div class="result-item-plazo"><span>Cuota a 12 meses</span><span id="cs-res-cuota-12" class="result-value">--</span></div>
+<div class="result-item-plazo"><span>Cuota a 24 meses</span><span id="cs-res-cuota-24" class="result-value">--</span></div>
+<div class="result-item-plazo"><span>Cuota a 36 meses</span><span id="cs-res-cuota-36" class="result-value">--</span></div>
+<div class="result-item-plazo"><span>Cuota a 48 meses</span><span id="cs-res-cuota-48" class="result-value">--</span></div>
+<div class="result-item-plazo"><span>Cuota a 60 meses</span><span id="cs-res-cuota-60" class="result-value">--</span></div>
+</div>
+</section>
+</div>
+</div>
+</div>
+<footer>BP Netcom - 2025</footer>
+</main>
+<script>
+     const TASAS = {
+         minicoutas: { CRC: 0.24, USD: 0.1992 },
+         compraSaldos: { CRC: 0.21, USD: 0.18 }
+     };
+     const PLAZOS = {
+         minicoutas: [12, 24, 36, 48],
+         tasaCero: [3, 4, 6, 9, 10, 12],
+         compraSaldos: [12, 24, 36, 48, 60]
+     };
+     const prefixMap = {
+         minicoutas: 'mc',
+         tasaCero: 'tc',
+         compraSaldos: 'cs'
+     };
+     function openTab(evt, tabName) {
+         document.querySelectorAll(".tab-content").forEach(tc => tc.style.display = "none");
+         document.querySelectorAll(".tab-link").forEach(tl => tl.classList.remove("active"));
+         document.getElementById(tabName).style.display = "block";
+         evt.currentTarget.classList.add("active");
+     }
+     function setupSelectors() {
+         ['mc', 'tc', 'cs'].forEach(prefix => {
+             document.getElementById(`${prefix}-currency`).addEventListener('click', function(e) {
+                 if (e.target.tagName === 'BUTTON') {
+                     this.querySelector('.selected').classList.remove('selected');
+                     e.target.classList.add('selected');
+                 }
+             });
+         });
+     }
+     function setupEnterKeyListeners() {
+         ['mc', 'tc', 'cs'].forEach(prefix => {
+             const program = Object.keys(prefixMap).find(key => prefixMap[key] === prefix);
+             document.getElementById(`${prefix}-monto-total`).addEventListener('keyup', function(event) {
+                 if (event.key === 'Enter') {
+                     event.preventDefault();
+                     calcular(program);
+                 }
+             });
+         });
+     }
+     function resetResults(prefix) {
+         const programa = Object.keys(prefixMap).find(key => prefixMap[key] === prefix);
+         document.getElementById(`${prefix}-res-monto`).textContent = '--';
+         if (prefix === 'tc') {
+              document.getElementById('tc-res-comision').textContent = '--';
+         }
+         PLAZOS[programa].forEach(plazo => {
+             const el = document.getElementById(`${prefix}-res-cuota-${plazo}`);
+             if (el) el.textContent = '--';
+         });
+     }
+     function calcular(programa) {
+         const prefix = prefixMap[programa];
+         if (!prefix) return;
+         resetResults(prefix);
+         const currency = document.querySelector(`#${prefix}-currency .selected`).dataset.value;
+         const plazosDisponibles = PLAZOS[programa];
+         const montoTotal = parseFloat(document.getElementById(`${prefix}-monto-total`).value);
+         if (isNaN(montoTotal) || montoTotal <= 0) {
+             return;
+         }
+         let resultado = { monto: montoTotal, cuotasPorPlazo: [] };
+         switch (programa) {
+             case 'minicoutas':
+                 const tasaAnualMC = TASAS.minicoutas[currency];
+                 const tasaMensualMC = tasaAnualMC / 12;
+                 resultado.cuotasPorPlazo = plazosDisponibles.map(plazo => ({
+                     plazo,
+                     cuota: calcularCuotaAmortizacion(montoTotal, tasaMensualMC, plazo)
+                 }));
+                 break;
+             case 'tasaCero':
+                 resultado.comision = montoTotal * 0.03;
+                 resultado.cuotasPorPlazo = plazosDisponibles.map(plazo => ({
+                     plazo,
+                     cuota: montoTotal / plazo
+                 }));
+                 break;
+             case 'compraSaldos':
+                 const tasaAnualCS = TASAS.compraSaldos[currency];
+                 const tasaMensualCS = tasaAnualCS / 12;
+                 resultado.cuotasPorPlazo = plazosDisponibles.map(plazo => ({
+                     plazo,
+                     cuota: calcularCuotaAmortizacion(montoTotal, tasaMensualCS, plazo)
+                 }));
+                 break;
+         }
+         mostrarResultados(prefix, resultado, currency);
+     }
+     function calcularCuotaAmortizacion(principal, tasaMensual, periodos) {
+         if (tasaMensual === 0) return principal / periodos;
+         const factor = Math.pow(1 + tasaMensual, periodos);
+         return principal * (tasaMensual * factor) / (factor - 1);
+     }
+     function mostrarResultados(prefix, resultado, currency) {
+         document.getElementById(`${prefix}-res-monto`).textContent = formatCurrency(resultado.monto, currency);
+         if (prefix === 'tc') {
+             document.getElementById(`${prefix}-res-comision`).textContent = formatCurrency(resultado.comision, currency);
+         }
+         resultado.cuotasPorPlazo.forEach(item => {
+             const resultSpan = document.getElementById(`${prefix}-res-cuota-${item.plazo}`);
+             if (resultSpan) {
+                 resultSpan.textContent = formatCurrency(item.cuota, currency);
+             }
+         });
+     }
+     function formatCurrency(value, currency) {
+          if (isNaN(value) || value === null) return '--';
+         return new Intl.NumberFormat('es-CR', {
+             style: 'currency',
+             currency: currency,
+             minimumFractionDigits: 2,
+             maximumFractionDigits: 2
+         }).format(value);
+     }
+     document.addEventListener('DOMContentLoaded', () => {
+         setupSelectors();
+         setupEnterKeyListeners();
+     });
+</script>
+</body>
+</html>
+
+una vez generado el presupuesto quiero que me de la opcion de exportarlo en un excel xlxs, pdf o json
+quiero que me de la opcion dep oder modificarlo si cargo el archivo json así lo trabajamos sin base de datos totalmente serverless pero esto unicamente para los presupuestos no para las proyecciones,
+
+3. que permita calcular el aguinaldo ingresando los 12 salarios del mes y siguiendo la normativa de aguinaldos de costa rica
+
+4. que analices mi logica de funcionalidades y agreges cantas más requiera para ser un servicio robusto para presupeustar, guiar finanzas, consejos financieros, etc ah si, una seccion de consejos financieros tipoo carrosuel estaría fantastico
+
+finalmente crea el proyecto en. E:\Mis proyectos
