@@ -1,39 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { calcAguinaldo } from '@/lib/finance'
-import { turso } from '@/lib/turso'
-import { v4 as uuidv4 } from 'uuid'
+import { calcAguinaldo } from '@/lib/financial'
+import { db } from '@/lib/turso'
+import { v4 as uuid } from 'uuid'
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { salaries, year } = body
-
-    if (!salaries || !Array.isArray(salaries) || salaries.length !== 12) {
-      return NextResponse.json({ error: 'Must provide exactly 12 monthly salaries' }, { status: 400 })
-    }
-
+    const { salaries, year } = await req.json()
+    if (!salaries || salaries.length < 1) return NextResponse.json({ error: 'Provide salaries' }, { status: 400 })
     const result = calcAguinaldo(salaries)
-
-    // Save calculation
-    const id = uuidv4()
-    await turso.execute({
-      sql: `INSERT INTO aguinaldo_calculations (id, year, salaries, total_gross, aguinaldo_amount) VALUES (?, ?, ?, ?, ?)`,
-      args: [id, year || new Date().getFullYear(), JSON.stringify(salaries), result.totalGross, result.aguinaldoAmount],
-    })
-
+    // Pad to 12 if needed
+    while (salaries.length < 12) salaries.push(0)
+    try {
+      await db.execute({
+        sql: `INSERT INTO savings_goals (id, name, target_amount, current_amount, target_date, currency) VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [uuid(), `Aguinaldo ${year || new Date().getFullYear()}`, result.aguinaldoAmount, 0, null, 'CRC'],
+      })
+    } catch {}
     return NextResponse.json(result)
-  } catch (error) {
-    console.error('Aguinaldo calculation error:', error)
-    return NextResponse.json({ error: 'Calculation failed' }, { status: 500 })
-  }
-}
-
-export async function GET() {
-  try {
-    const result = await turso.execute('SELECT * FROM aguinaldo_calculations ORDER BY created_at DESC')
-    return NextResponse.json({ calculations: result.rows })
-  } catch (error) {
-    console.error('Error fetching aguinaldo calculations:', error)
-    return NextResponse.json({ error: 'Failed to fetch calculations' }, { status: 500 })
+  } catch (e) {
+    console.error('Aguinaldo error:', e)
+    return NextResponse.json({ error: 'Failed' }, { status: 500 })
   }
 }

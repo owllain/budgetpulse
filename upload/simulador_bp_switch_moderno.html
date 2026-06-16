@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Definitivo TC | Banco Popular</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], display: ['Poppins', 'sans-serif'], },
+                    colors: {
+                        bp: { purple: '#651480', purplelight: '#8b2eab', purplebg: '#f8f4fa', orange: '#FF7900', orangedark: '#e66d00', }
+                    },
+                    boxShadow: { 'soft': '0 10px 40px -10px rgba(0,0,0,0.08)', 'floating': '0 20px 40px -10px rgba(101, 20, 128, 0.15)', }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .expandable { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); max-height: 0; opacity: 0; overflow: hidden; }
+        .expandable.open { max-height: 400px; opacity: 1; margin-top: 1rem; overflow: visible; }
+        
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        
+        .pulse-update { animation: pulseGreen 0.5s ease-out; }
+        @keyframes pulseGreen { 0% { color: #68D391; transform: scale(1.05); } 100% { color: inherit; transform: scale(1); } }
+
+        /* Estilos para el Switch Moderno */
+        .modern-switch {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .modern-switch input[type="checkbox"] {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+
+        .switch-track {
+            width: 3.5rem; /* w-14 */
+            height: 1.75rem; /* h-7 */
+            background-color: #cbd5e1; /* slate-300 */
+            border-radius: 9999px;
+            transition: background-color 0.3s ease;
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding: 0.125rem; /* p-0.5 */
+        }
+
+        .switch-thumb {
+            width: 1.5rem; /* w-6 */
+            height: 1.5rem; /* h-6 */
+            background-color: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform: translateX(0);
+        }
+
+        /* Icono dentro del thumb (opcional, para darle más estilo) */
+        .switch-icon {
+            width: 12px;
+            height: 12px;
+            color: #cbd5e1;
+            transition: color 0.3s ease;
+        }
+
+        .modern-switch input[type="checkbox"]:checked + .switch-track {
+            background-color: #FF7900; /* bp-orange */
+        }
+
+        .modern-switch input[type="checkbox"]:checked + .switch-track .switch-thumb {
+            transform: translateX(1.75rem); /* Mover a la derecha */
+        }
+
+        .modern-switch input[type="checkbox"]:checked + .switch-track .switch-icon {
+            color: #FF7900;
+        }
+        
+        .modern-switch input[type="checkbox"]:focus-visible + .switch-track {
+            outline: 2px solid #651480;
+            outline-offset: 2px;
+        }
+
+        /* Estilo para las tarjetas de los switches cuando están activos */
+        .switch-card {
+            transition: all 0.3s ease;
+        }
+        .switch-card.active {
+            border-color: #FF7900;
+            background-color: #fffaf0; /* Fondo naranja muy suave */
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- Header -->
+    <header class="bg-bp-purple text-white py-6 shadow-md relative z-10">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <i data-lucide="microscope" class="w-8 h-8 text-bp-orange"></i>
+                <div>
+                    <h1 class="font-display text-xl sm:text-2xl font-bold tracking-tight">Simulador BP Definitivo</h1>
+                    <p class="text-bp-purplebg text-xs sm:text-sm opacity-90">Ingeniería inversa con Modo Avanzado</p>
+                </div>
+            </div>
+            
+            <div class="bg-bp-purplelight/50 p-1 rounded-lg flex border border-white/20 self-end sm:self-auto">
+                <button id="btn-crc" onclick="setMoneda('CRC')" class="px-3 py-1.5 rounded-md text-sm font-bold transition-colors bg-white text-bp-purple shadow-sm">CRC ₡</button>
+                <button id="btn-usd" onclick="setMoneda('USD')" class="px-3 py-1.5 rounded-md text-sm font-bold transition-colors text-white hover:bg-white/10">USD $</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow py-8 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- CONTROLES -->
+            <div class="lg:col-span-7 space-y-5">
+                
+                <!-- Base de la Deuda -->
+                <div class="bg-white rounded-2xl shadow-soft p-6 border border-slate-100">
+                    <h2 class="font-display font-semibold text-lg text-slate-800 flex items-center gap-2 mb-5">
+                        <i data-lucide="wallet" class="w-5 h-5 text-bp-purple"></i>
+                        Datos Principales
+                    </h2>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Saldo Principal Adeudado</label>
+                            <div class="relative mt-1">
+                                <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400 currency-symbol">₡</span>
+                                <input type="number" id="inp-principal" placeholder="0.00" class="w-full pl-10 pr-4 py-3 font-medium border border-slate-200 rounded-xl focus:ring-2 focus:ring-bp-purple focus:border-bp-purple bg-slate-50 focus:bg-white transition-all text-lg" oninput="calcular()">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Tasa Anual (%)</label>
+                                <input type="number" id="inp-tasa" value="27.50" step="0.01" class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-bp-purple transition-all bg-slate-50 text-slate-700 font-medium" oninput="calcular()">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Cargos y Administrativos</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 currency-symbol">₡</span>
+                                    <input type="number" id="inp-cargos" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-bp-purple transition-all bg-slate-50" oninput="calcular()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Programas de Cuotas (NUEVO DISEÑO DE SWITCHES) -->
+                <div class="bg-white rounded-2xl shadow-soft p-6 border border-slate-100 space-y-4">
+                    <h2 class="font-display font-semibold text-lg text-slate-800 flex items-center gap-2 mb-4">
+                        <i data-lucide="layers" class="w-5 h-5 text-bp-purple"></i>
+                        Planes de Lealtad (Al 100%)
+                    </h2>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Switch Tasa Cero -->
+                        <div id="card-tasa0" class="switch-card p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+                            <div class="flex items-center justify-between mb-2">
+                                <label for="chk-tasa0" class="font-medium text-slate-800 text-sm cursor-pointer select-none">
+                                    Tasa Cero
+                                </label>
+                                <label class="modern-switch">
+                                    <input type="checkbox" id="chk-tasa0" onchange="toggleSectionModern('tasa0')">
+                                    <div class="switch-track">
+                                        <div class="switch-thumb">
+                                            <!-- Icono SVG (Check) -->
+                                            <svg class="switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            <div id="container-tasa0" class="expandable">
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Cuota mensual facturada</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 currency-symbol">₡</span>
+                                    <input type="number" id="inp-tasa0" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-bp-orange transition-all bg-white" oninput="calcular()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Switch Minicuotas -->
+                        <div id="card-minicuotas" class="switch-card p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+                            <div class="flex items-center justify-between mb-2">
+                                <label for="chk-minicuotas" class="font-medium text-slate-800 text-sm cursor-pointer select-none">
+                                    BP Minicuotas
+                                </label>
+                                <label class="modern-switch">
+                                    <input type="checkbox" id="chk-minicuotas" onchange="toggleSectionModern('minicuotas')">
+                                    <div class="switch-track">
+                                        <div class="switch-thumb">
+                                             <svg class="switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            <div id="container-minicuotas" class="expandable">
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Cuota mensual facturada</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 currency-symbol">₡</span>
+                                    <input type="number" id="inp-minicuotas" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-bp-orange transition-all bg-white" oninput="calcular()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MODO EXPERTO -->
+                <div class="bg-slate-800 rounded-2xl shadow-soft p-6 border border-slate-700 text-white">
+                    <div class="flex items-center justify-between cursor-pointer" onclick="document.getElementById('chk-experto').click()">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="settings-2" class="w-5 h-5 text-bp-orange"></i>
+                            <div>
+                                <h3 class="font-display font-semibold text-white">Modo Experto</h3>
+                                <p class="text-xs text-slate-400">Calibración avanzada</p>
+                            </div>
+                        </div>
+                        <label class="modern-switch" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="chk-experto" onchange="toggleSectionModern('experto')">
+                            <div class="switch-track" style="background-color: #475569;"> <!-- Tono más oscuro para fondo oscuro -->
+                                <div class="switch-thumb">
+                                    <svg class="switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <div id="container-experto" class="expandable">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-700">
+                            <!-- Saldo Promedio -->
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Saldo Promedio Diario (Para cálculo exacto de interés)</label>
+                                <p class="text-[10px] text-slate-400 mb-2">Si se deja vacío, se usará el Saldo Principal.</p>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 currency-symbol">₡</span>
+                                    <input type="number" id="inp-promedio" placeholder="Mismo que el principal" class="w-full pl-8 pr-3 py-2 border border-slate-600 bg-slate-700 rounded-lg focus:ring-2 focus:ring-bp-orange text-white placeholder-slate-400 transition-all" oninput="calcular()">
+                                </div>
+                            </div>
+                            
+                            <!-- Sobregiro -->
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Sobregiro (Al 100%)</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 currency-symbol">₡</span>
+                                    <input type="number" id="inp-sobregiro" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-600 bg-slate-700 rounded-lg focus:ring-2 focus:ring-bp-orange text-white transition-all" oninput="calcular()">
+                                </div>
+                            </div>
+
+                            <!-- Mora -->
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Saldo en Mora (Al 100%)</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 currency-symbol">₡</span>
+                                    <input type="number" id="inp-mora" placeholder="0.00" class="w-full pl-8 pr-3 py-2 border border-slate-600 bg-slate-700 rounded-lg focus:ring-2 focus:ring-bp-orange text-white transition-all" oninput="calcular()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RESULTADOS -->
+            <div class="lg:col-span-5 relative">
+                <div class="sticky top-6 space-y-5">
+                    
+                    <!-- Tarjeta Principal Pago Mínimo -->
+                    <div class="bg-white rounded-2xl shadow-floating p-6 border-t-4 border-bp-orange relative overflow-hidden">
+                        <div class="flex justify-between items-start mb-1">
+                            <h2 class="font-display font-bold text-slate-800 text-lg">Pago Mínimo</h2>
+                            <span id="badge-piso" class="hidden bg-red-100 text-red-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Aplica Piso Base</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-4">Total a pagar para no caer en mora</p>
+                        
+                        <p id="res-minimo" class="font-display text-4xl sm:text-5xl font-extrabold text-bp-orange tracking-tight mb-6">
+                            ₡0.00
+                        </p>
+
+                        <div class="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm">
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-500">Amortización (P/60)</span>
+                                <span id="res-amortizacion" class="font-medium text-slate-700">₡0.00</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-500" title="Calculado sobre saldo promedio si se indicó">Intereses</span>
+                                <span id="res-intereses" class="font-medium text-slate-700">₡0.00</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-500">Cargos Admin.</span>
+                                <span id="res-cargos" class="font-medium text-slate-700">₡0.00</span>
+                            </div>
+                            
+                            <div id="row-sobregiro" class="hidden flex justify-between items-center text-red-600 font-medium pt-1">
+                                <span>Sobregiro + Mora</span>
+                                <span id="res-sobregiro">₡0.00</span>
+                            </div>
+
+                            <div class="flex justify-between items-center border-t border-slate-200 pt-2 mt-2">
+                                <span class="text-slate-600 font-semibold">Cuotas (TC / MC)</span>
+                                <span id="res-cuotas" class="font-bold text-bp-purple">₡0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta Pago de Contado -->
+                    <div class="bg-gradient-to-br from-bp-purple to-bp-purplelight rounded-2xl shadow-soft p-6 text-white">
+                        <div class="flex justify-between items-center mb-2">
+                            <h2 class="font-display font-semibold text-lg">Pago de Contado</h2>
+                            <i data-lucide="check-circle" class="w-5 h-5 text-bp-purplebg opacity-80"></i>
+                        </div>
+                        <p class="text-[11px] text-bp-purplebg/80 mb-3">Cancele este monto para no generar nuevos intereses de financiamiento.</p>
+                        <p id="res-contado" class="font-display text-3xl font-bold text-white">
+                            ₡0.00
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        let moneda = 'CRC';
+        const config = {
+            'CRC': { simbolo: '₡', tasaDefecto: 27.50, pisoMinimo: 4000 },
+            'USD': { simbolo: '$', tasaDefecto: 20.00, pisoMinimo: 10 } 
+        };
+
+        function setMoneda(nuevaMoneda) {
+            moneda = nuevaMoneda;
+            
+            const btnCrc = document.getElementById('btn-crc');
+            const btnUsd = document.getElementById('btn-usd');
+            if (moneda === 'CRC') {
+                btnCrc.className = 'px-3 py-1.5 rounded-md text-sm font-bold transition-colors bg-white text-bp-purple shadow-sm';
+                btnUsd.className = 'px-3 py-1.5 rounded-md text-sm font-bold transition-colors text-white hover:bg-white/10';
+            } else {
+                btnUsd.className = 'px-3 py-1.5 rounded-md text-sm font-bold transition-colors bg-white text-bp-purple shadow-sm';
+                btnCrc.className = 'px-3 py-1.5 rounded-md text-sm font-bold transition-colors text-white hover:bg-white/10';
+            }
+
+            document.querySelectorAll('.currency-symbol').forEach(el => el.innerText = config[moneda].simbolo);
+            document.getElementById('inp-tasa').value = config[moneda].tasaDefecto;
+            
+            calcular();
+        }
+
+        // Nueva función para manejar el switch moderno y sus efectos
+        function toggleSectionModern(section) {
+            const chk = document.getElementById(`chk-${section}`);
+            const container = document.getElementById(`container-${section}`);
+            
+            // Efectos visuales para las tarjetas de lealtad
+            if(section === 'tasa0' || section === 'minicuotas') {
+                 const card = document.getElementById(`card-${section}`);
+                 if(chk.checked) {
+                     card.classList.add('active');
+                 } else {
+                     card.classList.remove('active');
+                 }
+            }
+
+            if (chk.checked) {
+                container.classList.add('open');
+                // Pequeño retraso para dar foco después de la animación
+                if (section !== 'experto') {
+                    setTimeout(() => {
+                        document.getElementById(`inp-${section}`).focus();
+                    }, 300);
+                }
+            } else {
+                container.classList.remove('open');
+                // Limpiar valores
+                if(section === 'experto') {
+                    document.getElementById('inp-promedio').value = '';
+                    document.getElementById('inp-sobregiro').value = '';
+                    document.getElementById('inp-mora').value = '';
+                } else {
+                     document.getElementById(`inp-${section}`).value = '';
+                }
+                calcular();
+            }
+        }
+
+        function formato(valor) {
+            if (isNaN(valor) || valor < 0) valor = 0;
+            return new Intl.NumberFormat('es-CR', {
+                style: 'currency', currency: moneda, minimumFractionDigits: 2
+            }).format(valor);
+        }
+
+        function animateValue(id) {
+            const el = document.getElementById(id);
+            el.classList.remove('pulse-update');
+            void el.offsetWidth;
+            el.classList.add('pulse-update');
+        }
+
+        function calcular() {
+            const principal = parseFloat(document.getElementById('inp-principal').value) || 0;
+            const tasaAnual = parseFloat(document.getElementById('inp-tasa').value) || 0;
+            const cargos = parseFloat(document.getElementById('inp-cargos').value) || 0;
+            
+            // Solo tomar valores si el switch está activo
+            const cuotaT0 = document.getElementById('chk-tasa0').checked ? (parseFloat(document.getElementById('inp-tasa0').value) || 0) : 0;
+            const cuotaMC = document.getElementById('chk-minicuotas').checked ? (parseFloat(document.getElementById('inp-minicuotas').value) || 0) : 0;
+            const totalCuotas = cuotaT0 + cuotaMC;
+
+            const expertoActivo = document.getElementById('chk-experto').checked;
+            const inpPromedio = document.getElementById('inp-promedio').value;
+            const promedio = (expertoActivo && inpPromedio !== '') ? parseFloat(inpPromedio) : principal;
+            
+            const sobregiro = expertoActivo ? (parseFloat(document.getElementById('inp-sobregiro').value) || 0) : 0;
+            const mora = expertoActivo ? (parseFloat(document.getElementById('inp-mora').value) || 0) : 0;
+            const obligacionesExtra = sobregiro + mora;
+
+            const tasaMensual = (tasaAnual / 100) / 12;
+            const intereses = promedio * tasaMensual;
+            let amortizacion = principal / 60; 
+            
+            const piso = config[moneda].pisoMinimo;
+            let subtotalMinimo = amortizacion + intereses + cargos;
+            const badgePiso = document.getElementById('badge-piso');
+            
+            if (principal > 0 && subtotalMinimo < piso && subtotalMinimo > 0) {
+                const diferencia = piso - subtotalMinimo;
+                amortizacion += diferencia; 
+                subtotalMinimo = piso;
+                badgePiso.classList.remove('hidden');
+            } else {
+                badgePiso.classList.add('hidden');
+            }
+
+            const pagoMinimoTotal = subtotalMinimo + totalCuotas + obligacionesExtra;
+            const pagoContadoTotal = principal + intereses + cargos + totalCuotas + obligacionesExtra;
+
+            document.getElementById('res-minimo').innerText = formato(pagoMinimoTotal);
+            document.getElementById('res-contado').innerText = formato(pagoContadoTotal);
+            
+            document.getElementById('res-amortizacion').innerText = formato(amortizacion);
+            document.getElementById('res-intereses').innerText = formato(intereses);
+            document.getElementById('res-cargos').innerText = formato(cargos);
+            document.getElementById('res-cuotas').innerText = formato(totalCuotas);
+
+            const rowSobregiro = document.getElementById('row-sobregiro');
+            if (obligacionesExtra > 0) {
+                rowSobregiro.classList.remove('hidden');
+                document.getElementById('res-sobregiro').innerText = formato(obligacionesExtra);
+            } else {
+                rowSobregiro.classList.add('hidden');
+            }
+
+            animateValue('res-minimo');
+            animateValue('res-contado');
+        }
+
+        window.onload = calcular;
+    </script>
+</body>
+</html>

@@ -1,0 +1,1466 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  Wallet, CreditCard, TrendingUp, TrendingDown, Plus, Trash2,
+     7→  ChevronDown, ChevronUp, Download, Upload, Calculator,
+     8→  PiggyBank, Shield, Receipt, DollarSign, Landmark,
+     9→  ArrowRight, Eye, EyeOff, Sparkles, ChevronLeft, ChevronRight,
+    10→  FileSpreadsheet, FileText, FileJson, X, Check, AlertTriangle,
+    11→  Info
+    12→} from 'lucide-react'
+    13→import { Button } from '@/components/ui/button'
+    14→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    15→import { Input } from '@/components/ui/input'
+    16→import { Label } from '@/components/ui/label'
+    17→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    18→import { Badge } from '@/components/ui/badge'
+    19→import { Progress } from '@/components/ui/progress'
+    20→import { Separator } from '@/components/ui/separator'
+    21→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    22→import { Switch } from '@/components/ui/switch'
+    23→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+    24→import { ScrollArea } from '@/components/ui/scroll-area'
+    25→import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+    26→import { toast } from 'sonner'
+    27→import * as XLSX from 'xlsx'
+    28→
+    29→// ============= TYPES =============
+    30→interface Income {
+    31→  id: string; name: string; amount: number; category: string; isRecurring: boolean
+    32→}
+    33→interface FixedExpense {
+    34→  id: string; name: string; amount: number; category: string; dueDate: string; isPaid: boolean
+    35→}
+    36→interface CreditObligation {
+    37→  id: string; name: string; type: string; totalDebt: number; monthlyPayment: number;
+    38→  annualRate: number; remainingMonths: number; minimumPayment: number; isPaid: boolean
+    39→}
+    40→interface EmergencyFund {
+    41→  id: string; name: string; targetAmount: number; currentAmount: number; monthlyContribution: number
+    42→}
+    43→interface VariableExpense {
+    44→  id: string; name: string; amount: number; category: string
+    45→}
+    46→interface Budget {
+    47→  id: string; name: string; periodType: string; periodStart: string; periodEnd: string; currency: string
+    48→  incomes: Income[]; fixedExpenses: FixedExpense[]; creditObligations: CreditObligation[];
+    49→  emergencyFunds: EmergencyFund[]; variableExpenses: VariableExpense[]
+    50→}
+    51→
+    52→// ============= CONSTANTS =============
+    53→const INCOME_CATEGORIES = [
+    54→  { value: 'salary', label: 'Salario', icon: '💰' },
+    55→  { value: 'freelance', label: 'Freelance', icon: '💻' },
+    56→  { value: 'investment', label: 'Inversión', icon: '📈' },
+    57→  { value: 'other', label: 'Otro', icon: '📌' },
+    58→]
+    59→const FIXED_EXPENSE_CATEGORIES = [
+    60→  { value: 'rent', label: 'Alquiler', icon: '🏠' },
+    61→  { value: 'utilities', label: 'Servicios', icon: '💡' },
+    62→  { value: 'insurance', label: 'Seguros', icon: '🛡️' },
+    63→  { value: 'subscriptions', label: 'Suscripciones', icon: '📱' },
+    64→  { value: 'transport', label: 'Transporte', icon: '🚗' },
+    65→  { value: 'other', label: 'Otro', icon: '📌' },
+    66→]
+    67→const VARIABLE_EXPENSE_CATEGORIES = [
+    68→  { value: 'food', label: 'Alimentación', icon: '🍕' },
+    69→  { value: 'entertainment', label: 'Entretenimiento', icon: '🎬' },
+    70→  { value: 'clothing', label: 'Ropa', icon: '👕' },
+    71→  { value: 'health', label: 'Salud', icon: '🏥' },
+    72→  { value: 'education', label: 'Educación', icon: '📚' },
+    73→  { value: 'gifts', label: 'Regalos', icon: '🎁' },
+    74→  { value: 'other', label: 'Otro', icon: '📌' },
+    75→]
+    76→const CREDIT_TYPES = [
+    77→  { value: 'credit_card', label: 'Tarjeta de Crédito' },
+    78→  { value: 'loan', label: 'Préstamo' },
+    79→  { value: 'financing', label: 'Financiamiento' },
+    80→]
+    81→const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+    82→
+    83→const FINANCIAL_TIPS = [
+    84→  { title: 'Regla 50/30/20', desc: 'Destina 50% a necesidades, 30% a deseos y 20% a ahorro. Es la base de un presupuesto saludable.', icon: '📊' },
+    85→  { title: 'Fondo de Emergencia', desc: 'Ahorra al menos 3-6 meses de gastos esenciales. Protege tu estabilidad ante imprevistos.', icon: '🛡️' },
+    86→  { title: 'Paga más del mínimo', desc: 'En tarjetas de crédito, pagar solo el mínimo genera intereses compuestos que duplican tu deuda.', icon: '💳' },
+    87→  { title: 'Automatiza tus ahorros', desc: 'Configura transferencias automáticas el día de pago. Ahorrar primero, gastar después.', icon: '🤖' },
+    88→  { title: 'Revisa tus suscripciones', desc: 'Audita mensualmente tus suscripciones activas. Elimina las que no uses regularmente.', icon: '📱' },
+    89→  { title: 'Interés compuesto', desc: 'En Costa Rica, las tarjetas pueden cobrar 24-36% anual. El interés compuesto hace que tu deuda crezca exponencialmente.', icon: '📈' },
+    90→  { title: 'Aguinaldo inteligente', desc: 'Usa tu aguinaldo para pagar deudas de alto interés o fortalecer tu fondo de emergencia.', icon: '🎄' },
+    91→  { title: 'Presupuesto por quincena', desc: 'Si cobras quincenal, divide tus gastos en dos mitades. Evita el estrés de fin de mes.', icon: '📅' },
+    92→]
+    93→
+    94→const uid = () => Math.random().toString(36).substr(2, 9)
+    95→
+    96→// ============= FORMAT HELPERS =============
+    97→function fmtCRC(n: number, cur: string = 'CRC') {
+    98→  return new Intl.NumberFormat('es-CR', {
+    99→    style: 'currency', currency: cur, minimumFractionDigits: 2, maximumFractionDigits: 2,
+   100→  }).format(n)
+   101→}
+   102→function getNow() {
+   103→  const d = new Date()
+   104→  return { year: d.getFullYear(), month: d.getMonth() }
+   105→}
+   106→function getMonthRange(periodType: string) {
+   107→  const { year, month } = getNow()
+   108→  if (periodType === 'biweek') {
+   109→    const day = new Date().getDate()
+   110→    if (day <= 15) {
+   111→      return { start: `${year}-${String(month + 1).padStart(2, '0')}-01`, end: `${year}-${String(month + 1).padStart(2, '0')}-15` }
+   112→    } else {
+   113→      const lastDay = new Date(year, month + 1, 0).getDate()
+   114→      return { start: `${year}-${String(month + 1).padStart(2, '0')}-16`, end: `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}` }
+   115→    }
+   116→  }
+   117→  const lastDay = new Date(year, month + 1, 0).getDate()
+   118→  return { start: `${year}-${String(month + 1).padStart(2, '0')}-01`, end: `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}` }
+   119→}
+   120→
+   121→// ============= MAIN COMPONENT =============
+   122→export default function Home() {
+   123→  const [budgets, setBudgets] = useState<any[]>([])
+   124→  const [activeBudget, setActiveBudget] = useState<Budget | null>(null)
+   125→  const [showBalance, setShowBalance] = useState(true)
+   126→  const [isCreating, setIsCreating] = useState(false)
+   127→  const [activeTab, setActiveTab] = useState('dashboard')
+   128→  const [tipIndex, setTipIndex] = useState(0)
+   129→  const [loading, setLoading] = useState(false)
+   130→  const [showImportDialog, setShowImportDialog] = useState(false)
+   131→
+   132→  // Calculator states
+   133→  const [calcType, setCalcType] = useState<'loan' | 'credit-card' | 'bp-programs'>('loan')
+   134→  const [calcResults, setCalcResults] = useState<any>(null)
+   135→  const [aguinaldoSalaries, setAguinaldoSalaries] = useState<number[]>(Array(12).fill(0))
+   136→  const [aguinaldoResult, setAguinaldoResult] = useState<any>(null)
+   137→
+   138→  // Form state
+   139→  const [formName, setFormName] = useState('Mi Presupuesto')
+   140→  const [formPeriodType, setFormPeriodType] = useState('month')
+   141→  const [formCurrency, setFormCurrency] = useState('CRC')
+   142→  const [formIncomes, setFormIncomes] = useState<Income[]>([])
+   143→  const [formFixedExpenses, setFormFixedExpenses] = useState<FixedExpense[]>([])
+   144→  const [formCreditObligations, setFormCreditObligations] = useState<CreditObligation[]>([])
+   145→  const [formEmergencyFunds, setFormEmergencyFunds] = useState<EmergencyFund[]>([])
+   146→  const [formVariableExpenses, setFormVariableExpenses] = useState<VariableExpense[]>([])
+   147→
+   148→  // Calculator form states
+   149→  const [loanPrincipal, setLoanPrincipal] = useState(1000000)
+   150→  const [loanRate, setLoanRate] = useState(24)
+   151→  const [loanMonths, setLoanMonths] = useState(36)
+   152→  const [ccDebt, setCcDebt] = useState(500000)
+   153→  const [ccRate, setCcRate] = useState(27.5)
+   154→  const [ccPayment, setCcPayment] = useState(25000)
+   155→  const [bpAmount, setBpAmount] = useState(500000)
+   156→  const [bpCurrency, setBpCurrency] = useState<'CRC' | 'USD'>('CRC')
+   157→
+   158→  // Fetch budget detail
+   159→  const fetchBudgetDetail = async (id: string) => {
+   160→    try {
+   161→      const res = await fetch(`/api/budgets/${id}`)
+   162→      const data = await res.json()
+   163→      setActiveBudget({
+   164→        id: data.budget.id,
+   165→        name: data.budget.name,
+   166→        periodType: data.budget.period_type,
+   167→        periodStart: data.budget.period_start,
+   168→        periodEnd: data.budget.period_end,
+   169→        currency: data.budget.currency,
+   170→        incomes: (data.incomes || []).map((r: any) => ({
+   171→          id: r.id, name: r.name, amount: r.amount, category: r.category, isRecurring: !!r.is_recurring,
+   172→        })),
+   173→        fixedExpenses: (data.fixedExpenses || []).map((r: any) => ({
+   174→          id: r.id, name: r.name, amount: r.amount, category: r.category, dueDate: r.due_date || '', isPaid: !!r.is_paid,
+   175→        })),
+   176→        creditObligations: (data.creditObligations || []).map((r: any) => ({
+   177→          id: r.id, name: r.name, type: r.type, totalDebt: r.total_debt,
+   178→          monthlyPayment: r.monthly_payment, annualRate: r.annual_rate,
+   179→          remainingMonths: r.remaining_months, minimumPayment: r.minimum_payment, isPaid: !!r.is_paid,
+   180→        })),
+   181→        emergencyFunds: (data.emergencyFunds || []).map((r: any) => ({
+   182→          id: r.id, name: r.name, targetAmount: r.target_amount,
+   183→          currentAmount: r.current_amount, monthlyContribution: r.monthly_contribution,
+   184→        })),
+   185→        variableExpenses: (data.variableExpenses || []).map((r: any) => ({
+   186→          id: r.id, name: r.name, amount: r.amount, category: r.category,
+   187→        })),
+   188→      })
+   189→    } catch (e) {
+   190→      console.error('Failed to fetch budget detail', e)
+   191→    }
+   192→  }
+   193→
+   194→  // Fetch budgets list on mount
+   195→  useEffect(() => {
+   196→    const load = async () => {
+   197→      try {
+   198→        const res = await fetch('/api/budgets')
+   199→        const data = await res.json()
+   200→        const list = data.budgets || []
+   201→        setBudgets(list)
+   202→        if (list.length > 0) {
+   203→          const firstId = list[0].id
+   204→          const detailRes = await fetch(`/api/budgets/${firstId}`)
+   205→          const detail = await detailRes.json()
+   206→          setActiveBudget({
+   207→            id: detail.budget.id,
+   208→            name: detail.budget.name,
+   209→            periodType: detail.budget.period_type,
+   210→            periodStart: detail.budget.period_start,
+   211→            periodEnd: detail.budget.period_end,
+   212→            currency: detail.budget.currency,
+   213→            incomes: (detail.incomes || []).map((r: any) => ({
+   214→              id: r.id, name: r.name, amount: r.amount, category: r.category, isRecurring: !!r.is_recurring,
+   215→            })),
+   216→            fixedExpenses: (detail.fixedExpenses || []).map((r: any) => ({
+   217→              id: r.id, name: r.name, amount: r.amount, category: r.category, dueDate: r.due_date || '', isPaid: !!r.is_paid,
+   218→            })),
+   219→            creditObligations: (detail.creditObligations || []).map((r: any) => ({
+   220→              id: r.id, name: r.name, type: r.type, totalDebt: r.total_debt,
+   221→              monthlyPayment: r.monthly_payment, annualRate: r.annual_rate,
+   222→              remainingMonths: r.remaining_months, minimumPayment: r.minimum_payment, isPaid: !!r.is_paid,
+   223→            })),
+   224→            emergencyFunds: (detail.emergencyFunds || []).map((r: any) => ({
+   225→              id: r.id, name: r.name, targetAmount: r.target_amount,
+   226→              currentAmount: r.current_amount, monthlyContribution: r.monthly_contribution,
+   227→            })),
+   228→            variableExpenses: (detail.variableExpenses || []).map((r: any) => ({
+   229→              id: r.id, name: r.name, amount: r.amount, category: r.category,
+   230→            })),
+   231→          })
+   232→        }
+   233→      } catch (e) {
+   234→        console.error('Failed to load budgets', e)
+   235→      }
+   236→    }
+   237→    load()
+   238→  }, [])
+   239→
+   240→  // Budget summary calculations
+   241→  const summary = activeBudget ? {
+   242→    totalIncome: activeBudget.incomes.reduce((s, i) => s + i.amount, 0),
+   243→    totalFixedExpenses: activeBudget.fixedExpenses.reduce((s, e) => s + e.amount, 0),
+   244→    totalCreditObligations: activeBudget.creditObligations.reduce((s, o) => s + o.monthlyPayment, 0),
+   245→    totalEmergencyContribution: activeBudget.emergencyFunds.reduce((s, e) => s + e.monthlyContribution, 0),
+   246→    totalVariableExpenses: activeBudget.variableExpenses.reduce((s, e) => s + e.amount, 0),
+   247→  } : { totalIncome: 0, totalFixedExpenses: 0, totalCreditObligations: 0, totalEmergencyContribution: 0, totalVariableExpenses: 0 }
+   248→
+   249→  const totalExpenses = summary.totalFixedExpenses + summary.totalCreditObligations + summary.totalEmergencyContribution + summary.totalVariableExpenses
+   250→  const available = summary.totalIncome - totalExpenses
+   251→  const availablePct = summary.totalIncome > 0 ? Math.round((available / summary.totalIncome) * 100) : 0
+   252→
+   253→  // Refresh budgets list
+   254→  const refreshBudgets = async () => {
+   255→    try {
+   256→      const res = await fetch('/api/budgets')
+   257→      const data = await res.json()
+   258→      setBudgets(data.budgets || [])
+   259→    } catch (e) {
+   260→      console.error('Failed to refresh budgets', e)
+   261→    }
+   262→  }
+   263→
+   264→  // Save budget
+   265→  const saveBudget = async () => {
+   266→    setLoading(true)
+   267→    try {
+   268→      const range = getMonthRange(formPeriodType)
+   269→      const res = await fetch('/api/budgets', {
+   270→        method: 'POST',
+   271→        headers: { 'Content-Type': 'application/json' },
+   272→        body: JSON.stringify({
+   273→          name: formName,
+   274→          periodType: formPeriodType,
+   275→          periodStart: range.start,
+   276→          periodEnd: range.end,
+   277→          currency: formCurrency,
+   278→          incomes: formIncomes,
+   279→          fixedExpenses: formFixedExpenses,
+   280→          creditObligations: formCreditObligations,
+   281→          emergencyFunds: formEmergencyFunds,
+   282→          variableExpenses: formVariableExpenses,
+   283→        }),
+   284→      })
+   285→      const data = await res.json()
+   286→      if (res.ok) {
+   287→        toast.success('Presupuesto guardado exitosamente')
+   288→        setIsCreating(false)
+   289→        resetForm()
+   290→        await refreshBudgets()
+   291→        if (data.id) await fetchBudgetDetail(data.id)
+   292→      } else {
+   293→        toast.error('Error al guardar: ' + data.error)
+   294→      }
+   295→    } catch (e) {
+   296→      toast.error('Error de conexión')
+   297→    }
+   298→    setLoading(false)
+   299→  }
+   300→
+   301→  const deleteBudget = async (id: string) => {
+   302→    try {
+   303→      await fetch(`/api/budgets/${id}`, { method: 'DELETE' })
+   304→      toast.success('Presupuesto eliminado')
+   305→      if (activeBudget?.id === id) setActiveBudget(null)
+   306→      await refreshBudgets()
+   307→    } catch (e) {
+   308→      toast.error('Error al eliminar')
+   309→    }
+   310→  }
+   311→
+   312→  // Calculator functions
+   313→  const runLoanCalc = async () => {
+   314→    try {
+   315→      const res = await fetch('/api/calculators', {
+   316→        method: 'POST',
+   317→        headers: { 'Content-Type': 'application/json' },
+   318→        body: JSON.stringify({ type: 'loan', principal: loanPrincipal, annualRate: loanRate / 100, months: loanMonths }),
+   319→      })
+   320→      const data = await res.json()
+   321→      setCalcResults({ type: 'loan', ...data })
+   322→    } catch (e) { toast.error('Error en cálculo') }
+   323→  }
+   324→
+   325→  const runCCCalc = async () => {
+   326→    try {
+   327→      const res = await fetch('/api/calculators', {
+   328→        method: 'POST',
+   329→        headers: { 'Content-Type': 'application/json' },
+   330→        body: JSON.stringify({
+   331→          type: 'credit-card-projection', principal: ccDebt,
+   332→          annualRate: ccRate / 100, monthlyPayment: ccPayment, months: 60,
+   333→        }),
+   334→      })
+   335→      const data = await res.json()
+   336→      setCalcResults({ type: 'credit-card', ...data })
+   337→    } catch (e) { toast.error('Error en cálculo') }
+   338→  }
+   339→
+   340→  const runBPCalc = async (programType: string) => {
+   341→    try {
+   342→      const res = await fetch('/api/calculators', {
+   343→        method: 'POST',
+   344→        headers: { 'Content-Type': 'application/json' },
+   345→        body: JSON.stringify({ type: programType, amount: bpAmount, currency: bpCurrency }),
+   346→      })
+   347→      const data = await res.json()
+   348→      setCalcResults({ type: 'bp', program: data.program, ...data })
+   349→    } catch (e) { toast.error('Error en cálculo') }
+   350→  }
+   351→
+   352→  const calcAguinaldoLocal = async () => {
+   353→    try {
+   354→      const res = await fetch('/api/aguinaldo', {
+   355→        method: 'POST',
+   356→        headers: { 'Content-Type': 'application/json' },
+   357→        body: JSON.stringify({ salaries: aguinaldoSalaries, year: new Date().getFullYear() }),
+   358→      })
+   359→      const data = await res.json()
+   360→      setAguinaldoResult(data)
+   361→    } catch (e) { toast.error('Error en cálculo') }
+   362→  }
+   363→
+   364→  // Export functions
+   365→  const exportJSON = async () => {
+   366→    if (!activeBudget) return toast.error('No hay presupuesto activo')
+   367→    const data = { ...activeBudget, summary: { ...summary, totalExpenses, available } }
+   368→    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+   369→    const url = URL.createObjectURL(blob)
+   370→    const a = document.createElement('a')
+   371→    a.href = url; a.download = `${activeBudget.name}.json`; a.click()
+   372→    URL.revokeObjectURL(url)
+   373→    toast.success('JSON exportado')
+   374→  }
+   375→
+   376→  const exportXLSX = () => {
+   377→    if (!activeBudget) return toast.error('No hay presupuesto activo')
+   378→    const wb = XLSX.utils.book_new()
+   379→
+   380→    const summaryData = [
+   381→      ['Resumen del Presupuesto'],
+   382→      ['Nombre', activeBudget.name],
+   383→      ['Período', activeBudget.periodType === 'month' ? 'Mensual' : 'Quincenal'],
+   384→      ['Moneda', activeBudget.currency],
+   385→      ['', ''],
+   386→      ['Total Ingresos', summary.totalIncome],
+   387→      ['Gastos Fijos', summary.totalFixedExpenses],
+   388→      ['Obligaciones Crediticias', summary.totalCreditObligations],
+   389→      ['Fondos Emergencia', summary.totalEmergencyContribution],
+   390→      ['Gastos Variables', summary.totalVariableExpenses],
+   391→      ['Total Egresos', totalExpenses],
+   392→      ['Disponible', available],
+   393→    ]
+   394→    const ws1 = XLSX.utils.aoa_to_sheet(summaryData)
+   395→    XLSX.utils.book_append_sheet(wb, ws1, 'Resumen')
+   396→
+   397→    const incomeRows = [['Ingresos', 'Categoría', 'Monto'], ...activeBudget.incomes.map(i => [i.name, i.category, i.amount])]
+   398→    const ws2 = XLSX.utils.aoa_to_sheet(incomeRows)
+   399→    XLSX.utils.book_append_sheet(wb, ws2, 'Ingresos')
+   400→
+   401→    const expenseRows = [['Gasto Fijo', 'Categoría', 'Monto', 'Vencimiento', 'Pagado'], ...activeBudget.fixedExpenses.map(e => [e.name, e.category, e.amount, e.dueDate, e.isPaid ? 'Sí' : 'No'])]
+   402→    const ws3 = XLSX.utils.aoa_to_sheet(expenseRows)
+   403→    XLSX.utils.book_append_sheet(wb, ws3, 'Gastos Fijos')
+   404→
+   405→    const creditRows = [['Obligación', 'Tipo', 'Deuda Total', 'Cuota Mensual', 'Tasa Anual', 'Meses Restantes'], ...activeBudget.creditObligations.map(o => [o.name, o.type, o.totalDebt, o.monthlyPayment, o.annualRate, o.remainingMonths])]
+   406→    const ws4 = XLSX.utils.aoa_to_sheet(creditRows)
+   407→    XLSX.utils.book_append_sheet(wb, ws4, 'Obligaciones')
+   408→
+   409→    const varRows = [['Gasto Variable', 'Categoría', 'Monto'], ...activeBudget.variableExpenses.map(e => [e.name, e.category, e.amount])]
+   410→    const ws5 = XLSX.utils.aoa_to_sheet(varRows)
+   411→    XLSX.utils.book_append_sheet(wb, ws5, 'Gastos Variables')
+   412→
+   413→    XLSX.writeFile(wb, `${activeBudget.name}.xlsx`)
+   414→    toast.success('Excel exportado')
+   415→  }
+   416→
+   417→  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+   418→    const file = e.target.files?.[0]
+   419→    if (!file) return
+   420→    const reader = new FileReader()
+   421→    reader.onload = (ev) => {
+   422→      try {
+   423→        const data = JSON.parse(ev.target?.result as string)
+   424→        if (data.incomes) {
+   425→          setFormIncomes(data.incomes.map((i: any) => ({ ...i, id: uid() })))
+   426→          setFormFixedExpenses((data.fixedExpenses || []).map((e: any) => ({ ...e, id: uid() })))
+   427→          setFormCreditObligations((data.creditObligations || []).map((o: any) => ({ ...o, id: uid() })))
+   428→          setFormEmergencyFunds((data.emergencyFunds || []).map((f: any) => ({ ...f, id: uid() })))
+   429→          setFormVariableExpenses((data.variableExpenses || []).map((v: any) => ({ ...v, id: uid() })))
+   430→          setFormName(data.name || 'Presupuesto Importado')
+   431→          setFormCurrency(data.currency || 'CRC')
+   432→          setFormPeriodType(data.periodType || 'month')
+   433→          setIsCreating(true)
+   434→          setShowImportDialog(false)
+   435→          toast.success('JSON importado correctamente')
+   436→        } else {
+   437→          toast.error('Formato de archivo no válido')
+   438→        }
+   439→      } catch {
+   440→        toast.error('Error al leer el archivo JSON')
+   441→      }
+   442→    }
+   443→    reader.readAsText(file)
+   444→  }
+   445→
+   446→  const resetForm = () => {
+   447→    setFormName('Mi Presupuesto')
+   448→    setFormPeriodType('month')
+   449→    setFormCurrency('CRC')
+   450→    setFormIncomes([])
+   451→    setFormFixedExpenses([])
+   452→    setFormCreditObligations([])
+   453→    setFormEmergencyFunds([])
+   454→    setFormVariableExpenses([])
+   455→  }
+   456→
+   457→  // Tip carousel
+   458→  useEffect(() => {
+   459→    const timer = setInterval(() => {
+   460→      setTipIndex(i => (i + 1) % FINANCIAL_TIPS.length)
+   461→    }, 6000)
+   462→    return () => clearInterval(timer)
+   463→  }, [])
+   464→
+   465→  const cur = activeBudget?.currency || formCurrency
+   466→
+   467→  return (
+   468→    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
+   469→      {/* ============= HEADER ============= */}
+   470→      <header className="sticky top-0 z-50 bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 text-white shadow-lg">
+   471→        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+   472→          <div className="flex items-center justify-between">
+   473→            <div className="flex items-center gap-3">
+   474→              <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+   475→                <Wallet className="w-6 h-6" />
+   476→              </div>
+   477→              <div>
+   478→                <h1 className="text-xl sm:text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-poppins)' }}>
+   479→                  BudgetFlow
+   480→                </h1>
+   481→                <p className="text-emerald-100 text-xs sm:text-sm">Gestión Financiera Inteligente</p>
+   482→              </div>
+   483→            </div>
+   484→            <div className="flex items-center gap-2">
+   485→              {budgets.length > 0 && (
+   486→                <Select value={activeBudget?.id || ''} onValueChange={(v) => fetchBudgetDetail(v)}>
+   487→                  <SelectTrigger className="w-48 bg-white/10 border-white/20 text-white">
+   488→                    <SelectValue placeholder="Seleccionar" />
+   489→                  </SelectTrigger>
+   490→                  <SelectContent>
+   491→                    {budgets.map((b: any) => (
+   492→                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+   493→                    ))}
+   494→                  </SelectContent>
+   495→                </Select>
+   496→              )}
+   497→              <Dialog open={isCreating} onOpenChange={setIsCreating}>
+   498→                <DialogTrigger asChild>
+   499→                  <Button onClick={() => { resetForm(); setIsCreating(true) }} className="bg-white text-emerald-700 hover:bg-emerald-50 font-semibold gap-1.5">
+   500→                    <Plus className="w-4 h-4" /> Nuevo
+   501→                  </Button>
+   502→                </DialogTrigger>
+   503→                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+   504→                  <DialogHeader>
+   505→                    <DialogTitle className="text-emerald-800" style={{ fontFamily: 'var(--font-poppins)' }}>
+   506→                      Crear Presupuesto
+   507→                    </DialogTitle>
+   508→                  </DialogHeader>
+   509→                  {/* ===== BUDGET FORM ===== */}
+   510→                  <div className="space-y-6 mt-4">
+   511→                    {/* Basic info */}
+   512→                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   513→                      <div className="space-y-2">
+   514→                        <Label>Nombre del Presupuesto</Label>
+   515→                        <Input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Mi Presupuesto" />
+   516→                      </div>
+   517→                      <div className="space-y-2">
+   518→                        <Label>Tipo de Período</Label>
+   519→                        <Select value={formPeriodType} onValueChange={setFormPeriodType}>
+   520→                          <SelectTrigger><SelectValue /></SelectTrigger>
+   521→                          <SelectContent>
+   522→                            <SelectItem value="month">Mensual</SelectItem>
+   523→                            <SelectItem value="biweek">Quincenal</SelectItem>
+   524→                          </SelectContent>
+   525→                        </Select>
+   526→                      </div>
+   527→                      <div className="space-y-2">
+   528→                        <Label>Moneda</Label>
+   529→                        <Select value={formCurrency} onValueChange={setFormCurrency}>
+   530→                          <SelectTrigger><SelectValue /></SelectTrigger>
+   531→                          <SelectContent>
+   532→                            <SelectItem value="CRC">Colones (₡)</SelectItem>
+   533→                            <SelectItem value="USD">Dólares ($)</SelectItem>
+   534→                          </SelectContent>
+   535→                        </Select>
+   536→                      </div>
+   537→                    </div>
+   538→
+   539→                    <Separator />
+   540→
+   541→                    {/* Incomes */}
+   542→                    <div className="space-y-3">
+   543→                      <div className="flex items-center justify-between">
+   544→                        <h3 className="font-semibold text-emerald-800 flex items-center gap-2">
+   545→                          <TrendingUp className="w-4 h-4" /> Ingresos
+   546→                        </h3>
+   547→                        <Button size="sm" variant="outline" onClick={() => setFormIncomes([...formIncomes, { id: uid(), name: '', amount: 0, category: 'salary', isRecurring: true }])}>
+   548→                          <Plus className="w-3 h-3 mr-1" /> Agregar
+   549→                        </Button>
+   550→                      </div>
+   551→                      {formIncomes.map((inc, i) => (
+   552→                        <div key={inc.id} className="grid grid-cols-12 gap-2 items-end">
+   553→                          <div className="col-span-4"><Input placeholder="Nombre" value={inc.name} onChange={e => { const u = [...formIncomes]; u[i] = { ...u[i], name: e.target.value }; setFormIncomes(u) }} /></div>
+   554→                          <div className="col-span-3">
+   555→                            <Select value={inc.category} onValueChange={v => { const u = [...formIncomes]; u[i] = { ...u[i], category: v }; setFormIncomes(u) }}>
+   556→                              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+   557→                              <SelectContent>{INCOME_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.icon} {c.label}</SelectItem>)}</SelectContent>
+   558→                            </Select>
+   559→                          </div>
+   560→                          <div className="col-span-3"><Input type="number" placeholder="Monto" value={inc.amount || ''} onChange={e => { const u = [...formIncomes]; u[i] = { ...u[i], amount: parseFloat(e.target.value) || 0 }; setFormIncomes(u) }} /></div>
+   561→                          <div className="col-span-1 flex items-center justify-center">
+   562→                            <TooltipProvider><Tooltip><TooltipTrigger><Switch checked={inc.isRecurring} onCheckedChange={v => { const u = [...formIncomes]; u[i] = { ...u[i], isRecurring: v }; setFormIncomes(u) }} /></TooltipTrigger><TooltipContent>Recurrente</TooltipContent></Tooltip></TooltipProvider>
+   563→                          </div>
+   564→                          <div className="col-span-1"><Button size="sm" variant="ghost" className="text-red-500 h-9" onClick={() => setFormIncomes(formIncomes.filter((_, j) => j !== i))}><Trash2 className="w-3.5 h-3.5" /></Button></div>
+   565→                        </div>
+   566→                      ))}
+   567→                    </div>
+   568→
+   569→                    <Separator />
+   570→
+   571→                    {/* Fixed Expenses */}
+   572→                    <div className="space-y-3">
+   573→                      <div className="flex items-center justify-between">
+   574→                        <h3 className="font-semibold text-emerald-800 flex items-center gap-2">
+   575→                          <Receipt className="w-4 h-4" /> Gastos Fijos
+   576→                        </h3>
+   577→                        <Button size="sm" variant="outline" onClick={() => setFormFixedExpenses([...formFixedExpenses, { id: uid(), name: '', amount: 0, category: 'utilities', dueDate: '', isPaid: false }])}>
+   578→                          <Plus className="w-3 h-3 mr-1" /> Agregar
+   579→                        </Button>
+   580→                      </div>
+   581→                      {formFixedExpenses.map((exp, i) => (
+   582→                        <div key={exp.id} className="grid grid-cols-12 gap-2 items-end">
+   583→                          <div className="col-span-3"><Input placeholder="Nombre" value={exp.name} onChange={e => { const u = [...formFixedExpenses]; u[i] = { ...u[i], name: e.target.value }; setFormFixedExpenses(u) }} /></div>
+   584→                          <div className="col-span-2">
+   585→                            <Select value={exp.category} onValueChange={v => { const u = [...formFixedExpenses]; u[i] = { ...u[i], category: v }; setFormFixedExpenses(u) }}>
+   586→                              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+   587→                              <SelectContent>{FIXED_EXPENSE_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.icon} {c.label}</SelectItem>)}</SelectContent>
+   588→                            </Select>
+   589→                          </div>
+   590→                          <div className="col-span-2"><Input type="number" placeholder="Monto" value={exp.amount || ''} onChange={e => { const u = [...formFixedExpenses]; u[i] = { ...u[i], amount: parseFloat(e.target.value) || 0 }; setFormFixedExpenses(u) }} /></div>
+   591→                          <div className="col-span-2"><Input placeholder="Día venc." value={exp.dueDate} onChange={e => { const u = [...formFixedExpenses]; u[i] = { ...u[i], dueDate: e.target.value }; setFormFixedExpenses(u) }} /></div>
+   592→                          <div className="col-span-2 flex items-center gap-1">
+   593→                            <Switch checked={exp.isPaid} onCheckedChange={v => { const u = [...formFixedExpenses]; u[i] = { ...u[i], isPaid: v }; setFormFixedExpenses(u) }} />
+   594→                            <span className="text-xs text-muted-foreground">{exp.isPaid ? 'Pagado' : 'Pend.'}</span>
+   595→                          </div>
+   596→                          <div className="col-span-1"><Button size="sm" variant="ghost" className="text-red-500 h-9" onClick={() => setFormFixedExpenses(formFixedExpenses.filter((_, j) => j !== i))}><Trash2 className="w-3.5 h-3.5" /></Button></div>
+   597→                        </div>
+   598→                      ))}
+   599→                    </div>
+   600→
+   601→                    <Separator />
+   602→
+   603→                    {/* Credit Obligations */}
+   604→                    <div className="space-y-3">
+   605→                      <div className="flex items-center justify-between">
+   606→                        <h3 className="font-semibold text-emerald-800 flex items-center gap-2">
+   607→                          <CreditCard className="w-4 h-4" /> Obligaciones Crediticias
+   608→                        </h3>
+   609→                        <Button size="sm" variant="outline" onClick={() => setFormCreditObligations([...formCreditObligations, { id: uid(), name: '', type: 'credit_card', totalDebt: 0, monthlyPayment: 0, annualRate: 0, remainingMonths: 0, minimumPayment: 0, isPaid: false }])}>
+   610→                          <Plus className="w-3 h-3 mr-1" /> Agregar
+   611→                        </Button>
+   612→                      </div>
+   613→                      {formCreditObligations.map((obl, i) => (
+   614→                        <div key={obl.id} className="space-y-2 p-3 bg-amber-50/50 rounded-lg border border-amber-100">
+   615→                          <div className="grid grid-cols-12 gap-2 items-end">
+   616→                            <div className="col-span-3"><Input placeholder="Nombre" value={obl.name} onChange={e => { const u = [...formCreditObligations]; u[i] = { ...u[i], name: e.target.value }; setFormCreditObligations(u) }} /></div>
+   617→                            <div className="col-span-3">
+   618→                              <Select value={obl.type} onValueChange={v => { const u = [...formCreditObligations]; u[i] = { ...u[i], type: v }; setFormCreditObligations(u) }}>
+   619→                                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+   620→                                <SelectContent>{CREDIT_TYPES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+   621→                              </Select>
+   622→                            </div>
+   623→                            <div className="col-span-2"><Input type="number" placeholder="Deuda total" value={obl.totalDebt || ''} onChange={e => { const u = [...formCreditObligations]; u[i] = { ...u[i], totalDebt: parseFloat(e.target.value) || 0 }; setFormCreditObligations(u) }} /></div>
+   624→                            <div className="col-span-2"><Input type="number" placeholder="Cuota mensual" value={obl.monthlyPayment || ''} onChange={e => { const u = [...formCreditObligations]; u[i] = { ...u[i], monthlyPayment: parseFloat(e.target.value) || 0 }; setFormCreditObligations(u) }} /></div>
+   625→                            <div className="col-span-1 flex items-center">
+   626→                              <Switch checked={obl.isPaid} onCheckedChange={v => { const u = [...formCreditObligations]; u[i] = { ...u[i], isPaid: v }; setFormCreditObligations(u) }} />
+   627→                            </div>
+   628→                            <div className="col-span-1"><Button size="sm" variant="ghost" className="text-red-500 h-9" onClick={() => setFormCreditObligations(formCreditObligations.filter((_, j) => j !== i))}><Trash2 className="w-3.5 h-3.5" /></Button></div>
+   629→                          </div>
+   630→                          <div className="grid grid-cols-3 gap-2">
+   631→                            <div><Label className="text-xs">Tasa Anual (%)</Label><Input type="number" step="0.01" value={obl.annualRate || ''} onChange={e => { const u = [...formCreditObligations]; u[i] = { ...u[i], annualRate: parseFloat(e.target.value) || 0 }; setFormCreditObligations(u) }} /></div>
+   632→                            <div><Label className="text-xs">Meses restantes</Label><Input type="number" value={obl.remainingMonths || ''} onChange={e => { const u = [...formCreditObligations]; u[i] = { ...u[i], remainingMonths: parseInt(e.target.value) || 0 }; setFormCreditObligations(u) }} /></div>
+   633→                            <div><Label className="text-xs">Pago mínimo</Label><Input type="number" value={obl.minimumPayment || ''} onChange={e => { const u = [...formCreditObligations]; u[i] = { ...u[i], minimumPayment: parseFloat(e.target.value) || 0 }; setFormCreditObligations(u) }} /></div>
+   634→                          </div>
+   635→                        </div>
+   636→                      ))}
+   637→                    </div>
+   638→
+   639→                    <Separator />
+   640→
+   641→                    {/* Emergency Funds */}
+   642→                    <div className="space-y-3">
+   643→                      <div className="flex items-center justify-between">
+   644→                        <h3 className="font-semibold text-emerald-800 flex items-center gap-2">
+   645→                          <Shield className="w-4 h-4" /> Fondos de Emergencia
+   646→                        </h3>
+   647→                        <Button size="sm" variant="outline" onClick={() => setFormEmergencyFunds([...formEmergencyFunds, { id: uid(), name: '', targetAmount: 0, currentAmount: 0, monthlyContribution: 0 }])}>
+   648→                          <Plus className="w-3 h-3 mr-1" /> Agregar
+   649→                        </Button>
+   650→                      </div>
+   651→                      {formEmergencyFunds.map((ef, i) => (
+   652→                        <div key={ef.id} className="grid grid-cols-12 gap-2 items-end">
+   653→                          <div className="col-span-3"><Input placeholder="Nombre" value={ef.name} onChange={e => { const u = [...formEmergencyFunds]; u[i] = { ...u[i], name: e.target.value }; setFormEmergencyFunds(u) }} /></div>
+   654→                          <div className="col-span-2"><Input type="number" placeholder="Meta" value={ef.targetAmount || ''} onChange={e => { const u = [...formEmergencyFunds]; u[i] = { ...u[i], targetAmount: parseFloat(e.target.value) || 0 }; setFormEmergencyFunds(u) }} /></div>
+   655→                          <div className="col-span-2"><Input type="number" placeholder="Actual" value={ef.currentAmount || ''} onChange={e => { const u = [...formEmergencyFunds]; u[i] = { ...u[i], currentAmount: parseFloat(e.target.value) || 0 }; setFormEmergencyFunds(u) }} /></div>
+   656→                          <div className="col-span-3"><Input type="number" placeholder="Aporte mensual" value={ef.monthlyContribution || ''} onChange={e => { const u = [...formEmergencyFunds]; u[i] = { ...u[i], monthlyContribution: parseFloat(e.target.value) || 0 }; setFormEmergencyFunds(u) }} /></div>
+   657→                          <div className="col-span-2"><Button size="sm" variant="ghost" className="text-red-500 h-9" onClick={() => setFormEmergencyFunds(formEmergencyFunds.filter((_, j) => j !== i))}><Trash2 className="w-3.5 h-3.5" /></Button></div>
+   658→                        </div>
+   659→                      ))}
+   660→                    </div>
+   661→
+   662→                    <Separator />
+   663→
+   664→                    {/* Variable Expenses */}
+   665→                    <div className="space-y-3">
+   666→                      <div className="flex items-center justify-between">
+   667→                        <h3 className="font-semibold text-emerald-800 flex items-center gap-2">
+   668→                          <TrendingDown className="w-4 h-4" /> Gastos Variables / Otros
+   669→                        </h3>
+   670→                        <Button size="sm" variant="outline" onClick={() => setFormVariableExpenses([...formVariableExpenses, { id: uid(), name: '', amount: 0, category: 'food' }])}>
+   671→                          <Plus className="w-3 h-3 mr-1" /> Agregar
+   672→                        </Button>
+   673→                      </div>
+   674→                      {formVariableExpenses.map((ve, i) => (
+   675→                        <div key={ve.id} className="grid grid-cols-12 gap-2 items-end">
+   676→                          <div className="col-span-4"><Input placeholder="Nombre" value={ve.name} onChange={e => { const u = [...formVariableExpenses]; u[i] = { ...u[i], name: e.target.value }; setFormVariableExpenses(u) }} /></div>
+   677→                          <div className="col-span-3">
+   678→                            <Select value={ve.category} onValueChange={v => { const u = [...formVariableExpenses]; u[i] = { ...u[i], category: v }; setFormVariableExpenses(u) }}>
+   679→                              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+   680→                              <SelectContent>{VARIABLE_EXPENSE_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.icon} {c.label}</SelectItem>)}</SelectContent>
+   681→                            </Select>
+   682→                          </div>
+   683→                          <div className="col-span-4"><Input type="number" placeholder="Monto" value={ve.amount || ''} onChange={e => { const u = [...formVariableExpenses]; u[i] = { ...u[i], amount: parseFloat(e.target.value) || 0 }; setFormVariableExpenses(u) }} /></div>
+   684→                          <div className="col-span-1"><Button size="sm" variant="ghost" className="text-red-500 h-9" onClick={() => setFormVariableExpenses(formVariableExpenses.filter((_, j) => j !== i))}><Trash2 className="w-3.5 h-3.5" /></Button></div>
+   685→                        </div>
+   686→                      ))}
+   687→                    </div>
+   688→
+   689→                    <div className="flex gap-3 pt-4">
+   690→                      <Button onClick={saveBudget} disabled={loading} className="bg-emerald-600 hover:bg-emerald-700 flex-1">
+   691→                        {loading ? 'Guardando...' : 'Guardar Presupuesto'}
+   692→                      </Button>
+   693→                      <Button variant="outline" onClick={() => setIsCreating(false)}>Cancelar</Button>
+   694→                    </div>
+   695→                  </div>
+   696→                </DialogContent>
+   697→              </Dialog>
+   698→              {/* Import */}
+   699→              <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+   700→                <DialogTrigger asChild>
+   701→                  <Button variant="ghost" size="sm" className="text-white/80 hover:text-white hover:bg-white/10">
+   702→                    <Upload className="w-4 h-4" />
+   703→                  </Button>
+   704→                </DialogTrigger>
+   705→                <DialogContent>
+   706→                  <DialogHeader>
+   707→                    <DialogTitle>Importar Presupuesto JSON</DialogTitle>
+   708→                  </DialogHeader>
+   709→                  <div className="space-y-4">
+   710→                    <p className="text-sm text-muted-foreground">Selecciona un archivo JSON exportado previamente para editar o recrear tu presupuesto.</p>
+   711→                    <Input type="file" accept=".json" onChange={handleImportJSON} />
+   712→                  </div>
+   713→                </DialogContent>
+   714→              </Dialog>
+   715→            </div>
+   716→          </div>
+   717→        </div>
+   718→      </header>
+   719→
+   720→      {/* ============= MAIN CONTENT ============= */}
+   721→      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+   722→        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+   723→          <TabsList className="grid w-full grid-cols-4 bg-white shadow-sm border">
+   724→            <TabsTrigger value="dashboard" className="gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+   725→              <Wallet className="w-4 h-4" /> <span className="hidden sm:inline">Dashboard</span>
+   726→            </TabsTrigger>
+   727→            <TabsTrigger value="calculators" className="gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+   728→              <Calculator className="w-4 h-4" /> <span className="hidden sm:inline">Calculadoras</span>
+   729→            </TabsTrigger>
+   730→            <TabsTrigger value="aguinaldo" className="gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+   731→              <DollarSign className="w-4 h-4" /> <span className="hidden sm:inline">Aguinaldo</span>
+   732→            </TabsTrigger>
+   733→            <TabsTrigger value="tips" className="gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+   734→              <Sparkles className="w-4 h-4" /> <span className="hidden sm:inline">Consejos</span>
+   735→            </TabsTrigger>
+   736→          </TabsList>
+   737→
+   738→          {/* ============= DASHBOARD TAB ============= */}
+   739→          <TabsContent value="dashboard" className="space-y-6">
+   740→            {!activeBudget ? (
+   741→              <div className="text-center py-16">
+   742→                <div className="bg-emerald-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+   743→                  <Wallet className="w-10 h-10 text-emerald-600" />
+   744→                </div>
+   745→                <h2 className="text-2xl font-bold text-slate-800 mb-2" style={{ fontFamily: 'var(--font-poppins)' }}>
+   746→                  ¡Bienvenido a BudgetFlow!
+   747→                </h2>
+   748→                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+   749→                  Crea tu primer presupuesto para comenzar a gestionar tus finanzas de forma inteligente.
+   750→                </p>
+   751→                <Button onClick={() => { resetForm(); setIsCreating(true) }} className="bg-emerald-600 hover:bg-emerald-700 gap-2">
+   752→                  <Plus className="w-4 h-4" /> Crear Mi Primer Presupuesto
+   753→                </Button>
+   754→              </div>
+   755→            ) : (
+   756→              <>
+   757→                {/* ===== DEBIT CARD VISUAL ===== */}
+   758→                <motion.div
+   759→                  initial={{ opacity: 0, y: 20 }}
+   760→                  animate={{ opacity: 1, y: 0 }}
+   761→                  className="flex justify-center"
+   762→                >
+   763→                  <div className="w-full max-w-md">
+   764→                    <div className="relative overflow-hidden rounded-2xl shadow-2xl" style={{
+   765→                      background: available >= 0
+   766→                        ? 'linear-gradient(135deg, #065f46 0%, #059669 40%, #10b981 100%)'
+   767→                        : 'linear-gradient(135deg, #991b1b 0%, #dc2626 40%, #ef4444 100%)',
+   768→                    }}>
+   769→                      {/* Card decorative circles */}
+   770→                      <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/5" />
+   771→                      <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-white/5" />
+   772→                      <div className="absolute top-1/2 right-1/4 w-20 h-20 rounded-full bg-white/5" />
+   773→
+   774→                      <div className="relative p-6 sm:p-8">
+   775→                        {/* Card header */}
+   776→                        <div className="flex items-center justify-between mb-8">
+   777→                          <div className="flex items-center gap-2">
+   778→                            <Landmark className="w-6 h-6 text-white/80" />
+   779→                            <span className="text-white/80 font-medium text-sm">BudgetFlow</span>
+   780→                          </div>
+   781→                          <div className="flex items-center gap-2">
+   782→                            <span className="text-white/60 text-xs">
+   783→                              {activeBudget.periodType === 'month' ? 'MENSUAL' : 'QUINCENAL'}
+   784→                            </span>
+   785→                            <Button variant="ghost" size="sm" className="text-white/60 hover:text-white h-6 w-6 p-0" onClick={() => setShowBalance(!showBalance)}>
+   786→                              {showBalance ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+   787→                            </Button>
+   788→                          </div>
+   789→                        </div>
+   790→
+   791→                        {/* Available balance */}
+   792→                        <div className="mb-8">
+   793→                          <p className="text-white/60 text-xs uppercase tracking-widest mb-1">Disponible</p>
+   794→                          <p className="text-white text-3xl sm:text-4xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-poppins)' }}>
+   795→                            {showBalance ? fmtCRC(available, cur) : '••••••••'}
+   796→                          </p>
+   797→                          <p className="text-white/50 text-xs mt-1">
+   798→                            {activeBudget.currency === 'CRC' ? 'Colones' : 'Dólares'} · {activeBudget.name}
+   799→                          </p>
+   800→                        </div>
+   801→
+   802→                        {/* Card details */}
+   803→                        <div className="grid grid-cols-2 gap-4">
+   804→                          <div>
+   805→                            <p className="text-white/50 text-[10px] uppercase tracking-widest">Ingresos</p>
+   806→                            <p className="text-white font-semibold text-sm">
+   807→                              {showBalance ? fmtCRC(summary.totalIncome, cur) : '••••••'}
+   808→                            </p>
+   809→                          </div>
+   810→                          <div className="text-right">
+   811→                            <p className="text-white/50 text-[10px] uppercase tracking-widest">Egresos</p>
+   812→                            <p className="text-white font-semibold text-sm">
+   813→                              {showBalance ? fmtCRC(totalExpenses, cur) : '••••••'}
+   814→                            </p>
+   815→                          </div>
+   816→                        </div>
+   817→
+   818→                        {/* Progress bar */}
+   819→                        <div className="mt-4">
+   820→                          <div className="flex items-center justify-between mb-1">
+   821→                            <span className="text-white/50 text-[10px]">Uso del presupuesto</span>
+   822→                            <span className="text-white/80 text-xs font-medium">{availablePct}% libre</span>
+   823→                          </div>
+   824→                          <div className="w-full bg-white/20 rounded-full h-1.5">
+   825→                            <div
+   826→                              className="h-1.5 rounded-full transition-all duration-500"
+   827→                              style={{
+   828→                                width: `${Math.min(100, Math.max(0, 100 - availablePct))}%`,
+   829→                                backgroundColor: availablePct >= 20 ? '#ffffff' : availablePct >= 0 ? '#fbbf24' : '#fca5a5',
+   830→                              }}
+   831→                            />
+   832→                          </div>
+   833→                        </div>
+   834→                      </div>
+   835→
+   836→                      {/* Card chip */}
+   837→                      <div className="absolute top-16 right-8">
+   838→                        <div className="w-10 h-8 rounded bg-gradient-to-br from-yellow-200/40 to-yellow-400/40 border border-white/20" />
+   839→                      </div>
+   840→                    </div>
+   841→                  </div>
+   842→                </motion.div>
+   843→
+   844→                {/* ===== SUMMARY CARDS ===== */}
+   845→                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+   846→                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+   847→                    <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
+   848→                      <CardContent className="p-4">
+   849→                        <div className="flex items-center gap-2 mb-2">
+   850→                          <div className="bg-emerald-100 p-1.5 rounded-lg"><TrendingUp className="w-4 h-4 text-emerald-600" /></div>
+   851→                          <span className="text-xs text-muted-foreground">Ingresos</span>
+   852→                        </div>
+   853→                        <p className="font-bold text-emerald-800 text-lg">{fmtCRC(summary.totalIncome, cur)}</p>
+   854→                      </CardContent>
+   855→                    </Card>
+   856→                  </motion.div>
+   857→
+   858→                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+   859→                    <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-white">
+   860→                      <CardContent className="p-4">
+   861→                        <div className="flex items-center gap-2 mb-2">
+   862→                          <div className="bg-orange-100 p-1.5 rounded-lg"><Receipt className="w-4 h-4 text-orange-600" /></div>
+   863→                          <span className="text-xs text-muted-foreground">Gastos Fijos</span>
+   864→                        </div>
+   865→                        <p className="font-bold text-orange-800 text-lg">{fmtCRC(summary.totalFixedExpenses, cur)}</p>
+   866→                      </CardContent>
+   867→                    </Card>
+   868→                  </motion.div>
+   869→
+   870→                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+   871→                    <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-white">
+   872→                      <CardContent className="p-4">
+   873→                        <div className="flex items-center gap-2 mb-2">
+   874→                          <div className="bg-amber-100 p-1.5 rounded-lg"><CreditCard className="w-4 h-4 text-amber-600" /></div>
+   875→                          <span className="text-xs text-muted-foreground">Créditos</span>
+   876→                        </div>
+   877→                        <p className="font-bold text-amber-800 text-lg">{fmtCRC(summary.totalCreditObligations, cur)}</p>
+   878→                      </CardContent>
+   879→                    </Card>
+   880→                  </motion.div>
+   881→
+   882→                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+   883→                    <Card className="border-sky-200 bg-gradient-to-br from-sky-50 to-white">
+   884→                      <CardContent className="p-4">
+   885→                        <div className="flex items-center gap-2 mb-2">
+   886→                          <div className="bg-sky-100 p-1.5 rounded-lg"><Shield className="w-4 h-4 text-sky-600" /></div>
+   887→                          <span className="text-xs text-muted-foreground">Emergencia</span>
+   888→                        </div>
+   889→                        <p className="font-bold text-sky-800 text-lg">{fmtCRC(summary.totalEmergencyContribution, cur)}</p>
+   890→                      </CardContent>
+   891→                    </Card>
+   892→                  </motion.div>
+   893→
+   894→                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="col-span-2 lg:col-span-1">
+   895→                    <Card className="border-rose-200 bg-gradient-to-br from-rose-50 to-white">
+   896→                      <CardContent className="p-4">
+   897→                        <div className="flex items-center gap-2 mb-2">
+   898→                          <div className="bg-rose-100 p-1.5 rounded-lg"><TrendingDown className="w-4 h-4 text-rose-600" /></div>
+   899→                          <span className="text-xs text-muted-foreground">Variables</span>
+   900→                        </div>
+   901→                        <p className="font-bold text-rose-800 text-lg">{fmtCRC(summary.totalVariableExpenses, cur)}</p>
+   902→                      </CardContent>
+   903→                    </Card>
+   904→                  </motion.div>
+   905→                </div>
+   906→
+   907→                {/* ===== BUDGET DETAILS ===== */}
+   908→                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   909→                  {/* Income list */}
+   910→                  <Card>
+   911→                    <CardHeader className="pb-3">
+   912→                      <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-600" /> Ingresos</CardTitle>
+   913→                    </CardHeader>
+   914→                    <CardContent className="pt-0">
+   915→                      <ScrollArea className="max-h-48">
+   916→                        {activeBudget.incomes.length === 0 ? (
+   917→                          <p className="text-sm text-muted-foreground text-center py-4">Sin ingresos registrados</p>
+   918→                        ) : (
+   919→                          <div className="space-y-2">
+   920→                            {activeBudget.incomes.map(inc => (
+   921→                              <div key={inc.id} className="flex items-center justify-between py-1.5 border-b last:border-0">
+   922→                                <div className="flex items-center gap-2">
+   923→                                  <span className="text-sm">{INCOME_CATEGORIES.find(c => c.value === inc.category)?.icon || '📌'}</span>
+   924→                                  <span className="text-sm font-medium">{inc.name}</span>
+   925→                                  {inc.isRecurring && <Badge variant="secondary" className="text-[10px]">Recurrente</Badge>}
+   926→                                </div>
+   927→                                <span className="text-sm font-semibold text-emerald-700">{fmtCRC(inc.amount, cur)}</span>
+   928→                              </div>
+   929→                            ))}
+   930→                          </div>
+   931→                        )}
+   932→                      </ScrollArea>
+   933→                    </CardContent>
+   934→                  </Card>
+   935→
+   936→                  {/* Fixed expenses */}
+   937→                  <Card>
+   938→                    <CardHeader className="pb-3">
+   939→                      <CardTitle className="text-base flex items-center gap-2"><Receipt className="w-4 h-4 text-orange-600" /> Gastos Fijos</CardTitle>
+   940→                    </CardHeader>
+   941→                    <CardContent className="pt-0">
+   942→                      <ScrollArea className="max-h-48">
+   943→                        {activeBudget.fixedExpenses.length === 0 ? (
+   944→                          <p className="text-sm text-muted-foreground text-center py-4">Sin gastos fijos</p>
+   945→                        ) : (
+   946→                          <div className="space-y-2">
+   947→                            {activeBudget.fixedExpenses.map(exp => (
+   948→                              <div key={exp.id} className="flex items-center justify-between py-1.5 border-b last:border-0">
+   949→                                <div className="flex items-center gap-2">
+   950→                                  <span className="text-sm">{FIXED_EXPENSE_CATEGORIES.find(c => c.value === exp.category)?.icon || '📌'}</span>
+   951→                                  <span className="text-sm font-medium">{exp.name}</span>
+   952→                                  {exp.isPaid ? <Badge className="text-[10px] bg-emerald-100 text-emerald-700">Pagado</Badge> : <Badge variant="outline" className="text-[10px]">Pendiente</Badge>}
+   953→                                </div>
+   954→                                <span className="text-sm font-semibold text-orange-700">{fmtCRC(exp.amount, cur)}</span>
+   955→                              </div>
+   956→                            ))}
+   957→                          </div>
+   958→                        )}
+   959→                      </ScrollArea>
+   960→                    </CardContent>
+   961→                  </Card>
+   962→
+   963→                  {/* Credit obligations */}
+   964→                  <Card>
+   965→                    <CardHeader className="pb-3">
+   966→                      <CardTitle className="text-base flex items-center gap-2"><CreditCard className="w-4 h-4 text-amber-600" /> Obligaciones Crediticias</CardTitle>
+   967→                    </CardHeader>
+   968→                    <CardContent className="pt-0">
+   969→                      <ScrollArea className="max-h-48">
+   970→                        {activeBudget.creditObligations.length === 0 ? (
+   971→                          <p className="text-sm text-muted-foreground text-center py-4">Sin obligaciones</p>
+   972→                        ) : (
+   973→                          <div className="space-y-2">
+   974→                            {activeBudget.creditObligations.map(obl => (
+   975→                              <div key={obl.id} className="flex items-center justify-between py-1.5 border-b last:border-0">
+   976→                                <div>
+   977→                                  <div className="flex items-center gap-2">
+   978→                                    <span className="text-sm font-medium">{obl.name}</span>
+   979→                                    <Badge variant="secondary" className="text-[10px]">{CREDIT_TYPES.find(c => c.value === obl.type)?.label || obl.type}</Badge>
+   980→                                  </div>
+   981→                                  <div className="text-xs text-muted-foreground mt-0.5">
+   982→                                    Deuda: {fmtCRC(obl.totalDebt, cur)} · Tasa: {obl.annualRate}% · {obl.remainingMonths} meses
+   983→                                  </div>
+   984→                                </div>
+   985→                                <span className="text-sm font-semibold text-amber-700">{fmtCRC(obl.monthlyPayment, cur)}/mes</span>
+   986→                              </div>
+   987→                            ))}
+   988→                          </div>
+   989→                        )}
+   990→                      </ScrollArea>
+   991→                    </CardContent>
+   992→                  </Card>
+   993→
+   994→                  {/* Variable expenses */}
+   995→                  <Card>
+   996→                    <CardHeader className="pb-3">
+   997→                      <CardTitle className="text-base flex items-center gap-2"><TrendingDown className="w-4 h-4 text-rose-600" /> Gastos Variables</CardTitle>
+   998→                    </CardHeader>
+   999→                    <CardContent className="pt-0">
+  1000→                      <ScrollArea className="max-h-48">
+  1001→                        {activeBudget.variableExpenses.length === 0 && activeBudget.emergencyFunds.length === 0 ? (
+  1002→                          <p className="text-sm text-muted-foreground text-center py-4">Sin gastos variables ni fondos</p>
+  1003→                        ) : (
+  1004→                          <div className="space-y-2">
+  1005→                            {activeBudget.emergencyFunds.map(ef => (
+  1006→                              <div key={ef.id} className="flex items-center justify-between py-1.5 border-b">
+  1007→                                <div className="flex items-center gap-2">
+  1008→                                  <Shield className="w-3.5 h-3.5 text-sky-500" />
+  1009→                                  <span className="text-sm font-medium">{ef.name}</span>
+  1010→                                  <Badge variant="secondary" className="text-[10px]">Emergencia</Badge>
+  1011→                                </div>
+  1012→                                <span className="text-sm font-semibold text-sky-700">{fmtCRC(ef.monthlyContribution, cur)}/mes</span>
+  1013→                              </div>
+  1014→                            ))}
+  1015→                            {activeBudget.variableExpenses.map(ve => (
+  1016→                              <div key={ve.id} className="flex items-center justify-between py-1.5 border-b last:border-0">
+  1017→                                <div className="flex items-center gap-2">
+  1018→                                  <span className="text-sm">{VARIABLE_EXPENSE_CATEGORIES.find(c => c.value === ve.category)?.icon || '📌'}</span>
+  1019→                                  <span className="text-sm font-medium">{ve.name}</span>
+  1020→                                </div>
+  1021→                                <span className="text-sm font-semibold text-rose-700">{fmtCRC(ve.amount, cur)}</span>
+  1022→                              </div>
+  1023→                            ))}
+  1024→                          </div>
+  1025→                        )}
+  1026→                      </ScrollArea>
+  1027→                    </CardContent>
+  1028→                  </Card>
+  1029→                </div>
+  1030→
+  1031→                {/* Export buttons */}
+  1032→                <Card>
+  1033→                  <CardContent className="p-4">
+  1034→                    <div className="flex flex-wrap items-center gap-3">
+  1035→                      <span className="text-sm font-medium text-muted-foreground">Exportar:</span>
+  1036→                      <Button size="sm" variant="outline" onClick={exportXLSX} className="gap-1.5">
+  1037→                        <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+  1038→                      </Button>
+  1039→                      <Button size="sm" variant="outline" onClick={exportJSON} className="gap-1.5">
+  1040→                        <FileJson className="w-3.5 h-3.5" /> JSON
+  1041→                      </Button>
+  1042→                      <div className="flex-1" />
+  1043→                      <Button size="sm" variant="destructive" onClick={() => deleteBudget(activeBudget.id)} className="gap-1.5">
+  1044→                        <Trash2 className="w-3.5 h-3.5" /> Eliminar
+  1045→                      </Button>
+  1046→                    </div>
+  1047→                  </CardContent>
+  1048→                </Card>
+  1049→              </>
+  1050→            )}
+  1051→          </TabsContent>
+  1052→
+  1053→          {/* ============= CALCULATORS TAB ============= */}
+  1054→          <TabsContent value="calculators" className="space-y-6">
+  1055→            <Tabs value={calcType} onValueChange={v => { setCalcType(v as any); setCalcResults(null) }}>
+  1056→              <TabsList className="grid w-full grid-cols-3">
+  1057→                <TabsTrigger value="loan">Préstamo</TabsTrigger>
+  1058→                <TabsTrigger value="credit-card">Tarjeta Crédito</TabsTrigger>
+  1059→                <TabsTrigger value="bp-programs">Planes BP</TabsTrigger>
+  1060→              </TabsList>
+  1061→
+  1062→              {/* Loan Calculator */}
+  1063→              <TabsContent value="loan" className="space-y-4">
+  1064→                <Card>
+  1065→                  <CardHeader>
+  1066→                    <CardTitle className="text-lg flex items-center gap-2"><Landmark className="w-5 h-5 text-emerald-600" /> Calculadora de Préstamos</CardTitle>
+  1067→                    <CardDescription>Calcula tu cuota mensual usando el sistema de amortización francés</CardDescription>
+  1068→                  </CardHeader>
+  1069→                  <CardContent className="space-y-4">
+  1070→                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  1071→                      <div className="space-y-2">
+  1072→                        <Label>Monto del Préstamo</Label>
+  1073→                        <Input type="number" value={loanPrincipal} onChange={e => setLoanPrincipal(parseFloat(e.target.value) || 0)} />
+  1074→                      </div>
+  1075→                      <div className="space-y-2">
+  1076→                        <Label>Tasa Anual (%)</Label>
+  1077→                        <Input type="number" step="0.01" value={loanRate} onChange={e => setLoanRate(parseFloat(e.target.value) || 0)} />
+  1078→                      </div>
+  1079→                      <div className="space-y-2">
+  1080→                        <Label>Plazo (meses)</Label>
+  1081→                        <Input type="number" value={loanMonths} onChange={e => setLoanMonths(parseInt(e.target.value) || 0)} />
+  1082→                      </div>
+  1083→                    </div>
+  1084→                    <Button onClick={runLoanCalc} className="bg-emerald-600 hover:bg-emerald-700 gap-2 w-full sm:w-auto">
+  1085→                      <Calculator className="w-4 h-4" /> Calcular
+  1086→                    </Button>
+  1087→                  </CardContent>
+  1088→                </Card>
+  1089→
+  1090→                {calcResults?.type === 'loan' && (
+  1091→                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+  1092→                    <Card className="border-emerald-200 bg-emerald-50/30">
+  1093→                      <CardHeader>
+  1094→                        <CardTitle className="text-lg">Resultados</CardTitle>
+  1095→                      </CardHeader>
+  1096→                      <CardContent className="space-y-4">
+  1097→                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  1098→                          <div className="bg-white p-4 rounded-xl border">
+  1099→                            <p className="text-xs text-muted-foreground">Cuota Mensual</p>
+  1100→                            <p className="text-2xl font-bold text-emerald-700" style={{ fontFamily: 'var(--font-poppins)' }}>{fmtCRC(calcResults.monthlyPayment)}</p>
+  1101→                          </div>
+  1102→                          <div className="bg-white p-4 rounded-xl border">
+  1103→                            <p className="text-xs text-muted-foreground">Total a Pagar</p>
+  1104→                            <p className="text-2xl font-bold text-orange-700" style={{ fontFamily: 'var(--font-poppins)' }}>{fmtCRC(calcResults.totalPaid)}</p>
+  1105→                          </div>
+  1106→                          <div className="bg-white p-4 rounded-xl border">
+  1107→                            <p className="text-xs text-muted-foreground">Total Intereses</p>
+  1108→                            <p className="text-2xl font-bold text-red-700" style={{ fontFamily: 'var(--font-poppins)' }}>{fmtCRC(calcResults.totalInterest)}</p>
+  1109→                          </div>
+  1110→                        </div>
+  1111→                        {calcResults.schedule && (
+  1112→                          <div>
+  1113→                            <h4 className="text-sm font-semibold mb-2">Tabla de Amortización (primeros 12 meses)</h4>
+  1114→                            <ScrollArea className="max-h-64">
+  1115→                              <table className="w-full text-sm">
+  1116→                                <thead className="sticky top-0 bg-emerald-50">
+  1117→                                  <tr>
+  1118→                                    <th className="text-left p-2">Mes</th>
+  1119→                                    <th className="text-right p-2">Cuota</th>
+  1120→                                    <th className="text-right p-2">Principal</th>
+  1121→                                    <th className="text-right p-2">Interés</th>
+  1122→                                    <th className="text-right p-2">Saldo</th>
+  1123→                                  </tr>
+  1124→                                </thead>
+  1125→                                <tbody>
+  1126→                                  {calcResults.schedule.slice(0, 12).map((row: any) => (
+  1127→                                    <tr key={row.month} className="border-b">
+  1128→                                      <td className="p-2">{row.month}</td>
+  1129→                                      <td className="text-right p-2">{fmtCRC(row.payment)}</td>
+  1130→                                      <td className="text-right p-2 text-emerald-700">{fmtCRC(row.principal)}</td>
+  1131→                                      <td className="text-right p-2 text-red-600">{fmtCRC(row.interest)}</td>
+  1132→                                      <td className="text-right p-2">{fmtCRC(row.balance)}</td>
+  1133→                                    </tr>
+  1134→                                  ))}
+  1135→                                </tbody>
+  1136→                              </table>
+  1137→                            </ScrollArea>
+  1138→                          </div>
+  1139→                        )}
+  1140→                      </CardContent>
+  1141→                    </Card>
+  1142→                  </motion.div>
+  1143→                )}
+  1144→              </TabsContent>
+  1145→
+  1146→              {/* Credit Card Calculator */}
+  1147→              <TabsContent value="credit-card" className="space-y-4">
+  1148→                <Card>
+  1149→                  <CardHeader>
+  1150→                    <CardTitle className="text-lg flex items-center gap-2"><CreditCard className="w-5 h-5 text-amber-600" /> Proyección de Tarjeta de Crédito</CardTitle>
+  1151→                    <CardDescription>Ve cómo evoluciona tu deuda con el interés compuesto</CardDescription>
+  1152→                  </CardHeader>
+  1153→                  <CardContent className="space-y-4">
+  1154→                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  1155→                      <div className="space-y-2">
+  1156→                        <Label>Deuda Actual</Label>
+  1157→                        <Input type="number" value={ccDebt} onChange={e => setCcDebt(parseFloat(e.target.value) || 0)} />
+  1158→                      </div>
+  1159→                      <div className="space-y-2">
+  1160→                        <Label>Tasa Anual (%)</Label>
+  1161→                        <Input type="number" step="0.01" value={ccRate} onChange={e => setCcRate(parseFloat(e.target.value) || 0)} />
+  1162→                      </div>
+  1163→                      <div className="space-y-2">
+  1164→                        <Label>Pago Mensual</Label>
+  1165→                        <Input type="number" value={ccPayment} onChange={e => setCcPayment(parseFloat(e.target.value) || 0)} />
+  1166→                      </div>
+  1167→                    </div>
+  1168→                    <Button onClick={runCCCalc} className="bg-amber-600 hover:bg-amber-700 gap-2 w-full sm:w-auto">
+  1169→                      <Calculator className="w-4 h-4" /> Proyectar Deuda
+  1170→                    </Button>
+  1171→                  </CardContent>
+  1172→                </Card>
+  1173→
+  1174→                {calcResults?.type === 'credit-card' && (
+  1175→                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+  1176→                    <Card className="border-amber-200 bg-amber-50/30">
+  1177→                      <CardHeader>
+  1178→                        <CardTitle className="text-lg">Proyección</CardTitle>
+  1179→                      </CardHeader>
+  1180→                      <CardContent className="space-y-4">
+  1181→                        {calcResults.payoff?.months === -1 ? (
+  1182→                          <div className="bg-red-50 p-4 rounded-xl border border-red-200 flex items-start gap-3">
+  1183→                            <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5" />
+  1184→                            <div>
+  1185→                              <p className="font-semibold text-red-800">¡Tu pago no cubre los intereses!</p>
+  1186→                              <p className="text-sm text-red-700">Con este pago mensual, tu deuda crecerá indefinidamente. Necesitas pagar al menos {fmtCRC(ccDebt * (ccRate / 100 / 12))} mensuales para empezar a reducir la deuda.</p>
+  1187→                            </div>
+  1188→                          </div>
+  1189→                        ) : (
+  1190→                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  1191→                            <div className="bg-white p-4 rounded-xl border">
+  1192→                              <p className="text-xs text-muted-foreground">Meses para liquidar</p>
+  1193→                              <p className="text-2xl font-bold text-amber-700" style={{ fontFamily: 'var(--font-poppins)' }}>{calcResults.payoff?.months || 0}</p>
+  1194→                            </div>
+  1195→                            <div className="bg-white p-4 rounded-xl border">
+  1196→                              <p className="text-xs text-muted-foreground">Total intereses</p>
+  1197→                              <p className="text-2xl font-bold text-red-700" style={{ fontFamily: 'var(--font-poppins)' }}>{fmtCRC(calcResults.payoff?.totalInterest || 0)}</p>
+  1198→                            </div>
+  1199→                            <div className="bg-white p-4 rounded-xl border">
+  1200→                              <p className="text-xs text-muted-foreground">Total pagado</p>
+  1201→                              <p className="text-2xl font-bold text-orange-700" style={{ fontFamily: 'var(--font-poppins)' }}>{fmtCRC(calcResults.payoff?.totalPaid || 0)}</p>
+  1202→                            </div>
+  1203→                          </div>
+  1204→                        )}
+  1205→                        {calcResults.projection && (
+  1206→                          <div>
+  1207→                            <h4 className="text-sm font-semibold mb-2">Evolución de la Deuda</h4>
+  1208→                            <ScrollArea className="max-h-64">
+  1209→                              <table className="w-full text-sm">
+  1210→                                <thead className="sticky top-0 bg-amber-50">
+  1211→                                  <tr>
+  1212→                                    <th className="text-left p-2">Mes</th>
+  1213→                                    <th className="text-right p-2">Saldo</th>
+  1214→                                    <th className="text-right p-2">Intereses Acum.</th>
+  1215→                                    <th className="text-right p-2">Total Pagado</th>
+  1216→                                  </tr>
+  1217→                                </thead>
+  1218→                                <tbody>
+  1219→                                  {calcResults.projection.filter((_: any, i: number) => i < 24 || i % 6 === 0).map((row: any) => (
+  1220→                                    <tr key={row.month} className="border-b">
+  1221→                                      <td className="p-2">{row.month}</td>
+  1222→                                      <td className="text-right p-2">{fmtCRC(row.balance)}</td>
+  1223→                                      <td className="text-right p-2 text-red-600">{fmtCRC(row.interestAccumulated)}</td>
+  1224→                                      <td className="text-right p-2">{fmtCRC(row.totalPaid)}</td>
+  1225→                                    </tr>
+  1226→                                  ))}
+  1227→                                </tbody>
+  1228→                              </table>
+  1229→                            </ScrollArea>
+  1230→                          </div>
+  1231→                        )}
+  1232→                      </CardContent>
+  1233→                    </Card>
+  1234→                  </motion.div>
+  1235→                )}
+  1236→              </TabsContent>
+  1237→
+  1238→              {/* BP Programs */}
+  1239→              <TabsContent value="bp-programs" className="space-y-4">
+  1240→                <Card>
+  1241→                  <CardHeader>
+  1242→                    <CardTitle className="text-lg flex items-center gap-2"><Landmark className="w-5 h-5 text-purple-600" /> Planes de Lealtad Banco Popular</CardTitle>
+  1243→                    <CardDescription>Minicuotas, Tasa Cero y Compra de Saldos</CardDescription>
+  1244→                  </CardHeader>
+  1245→                  <CardContent className="space-y-4">
+  1246→                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1247→                      <div className="space-y-2">
+  1248→                        <Label>Monto</Label>
+  1249→                        <Input type="number" value={bpAmount} onChange={e => setBpAmount(parseFloat(e.target.value) || 0)} />
+  1250→                      </div>
+  1251→                      <div className="space-y-2">
+  1252→                        <Label>Moneda</Label>
+  1253→                        <Select value={bpCurrency} onValueChange={v => setBpCurrency(v as 'CRC' | 'USD')}>
+  1254→                          <SelectTrigger><SelectValue /></SelectTrigger>
+  1255→                          <SelectContent>
+  1256→                            <SelectItem value="CRC">Colones (₡)</SelectItem>
+  1257→                            <SelectItem value="USD">Dólares ($)</SelectItem>
+  1258→                          </SelectContent>
+  1259→                        </Select>
+  1260→                      </div>
+  1261→                    </div>
+  1262→                    <div className="flex flex-wrap gap-2">
+  1263→                      <Button onClick={() => runBPCalc('bp-minicuotas')} className="bg-purple-600 hover:bg-purple-700 gap-1.5">
+  1264→                        <Calculator className="w-4 h-4" /> Minicuotas
+  1265→                      </Button>
+  1266→                      <Button onClick={() => runBPCalc('bp-tasa-cero')} className="bg-teal-600 hover:bg-teal-700 gap-1.5">
+  1267→                        <Calculator className="w-4 h-4" /> Tasa Cero
+  1268→                      </Button>
+  1269→                      <Button onClick={() => runBPCalc('bp-compra-saldos')} className="bg-orange-600 hover:bg-orange-700 gap-1.5">
+  1270→                        <Calculator className="w-4 h-4" /> Compra de Saldos
+  1271→                      </Button>
+  1272→                    </div>
+  1273→                  </CardContent>
+  1274→                </Card>
+  1275→
+  1276→                {calcResults?.type === 'bp' && (
+  1277→                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+  1278→                    <Card className="border-purple-200 bg-purple-50/30">
+  1279→                      <CardHeader>
+  1280→                        <CardTitle className="text-lg">{calcResults.program}</CardTitle>
+  1281→                        {calcResults.commission !== undefined && (
+  1282→                          <CardDescription>Comisión del 3%: {fmtCRC(calcResults.commission, bpCurrency)} · Total: {fmtCRC(calcResults.totalWithCommission, bpCurrency)}</CardDescription>
+  1283→                        )}
+  1284→                      </CardHeader>
+  1285→                      <CardContent>
+  1286→                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+  1287→                          {calcResults.paymentsByTerm?.map((item: any) => (
+  1288→                            <div key={item.term} className="bg-white p-4 rounded-xl border text-center">
+  1289→                              <p className="text-xs text-muted-foreground mb-1">Cuota a {item.term} meses</p>
+  1290→                              <p className="text-xl font-bold text-purple-700" style={{ fontFamily: 'var(--font-poppins)' }}>
+  1291→                                {fmtCRC(item.payment, bpCurrency)}
+  1292→                              </p>
+  1293→                            </div>
+  1294→                          ))}
+  1295→                        </div>
+  1296→                      </CardContent>
+  1297→                    </Card>
+  1298→                  </motion.div>
+  1299→                )}
+  1300→              </TabsContent>
+  1301→            </Tabs>
+  1302→          </TabsContent>
+  1303→
+  1304→          {/* ============= AGUINALDO TAB ============= */}
+  1305→          <TabsContent value="aguinaldo" className="space-y-6">
+  1306→            <Card>
+  1307→              <CardHeader>
+  1308→                <CardTitle className="text-lg flex items-center gap-2"><DollarSign className="w-5 h-5 text-emerald-600" /> Calculadora de Aguinaldo</CardTitle>
+  1309→                <CardDescription>
+  1310→                  Ingresa tus 12 salarios mensuales (diciembre del año anterior a noviembre del actual) según la normativa de Costa Rica.
+  1311→                  El aguinaldo equivale al promedio de los 12 salarios.
+  1312→                </CardDescription>
+  1313→              </CardHeader>
+  1314→              <CardContent className="space-y-4">
+  1315→                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+  1316→                  {aguinaldoSalaries.map((sal, i) => (
+  1317→                    <div key={i} className="space-y-1">
+  1318→                      <Label className="text-xs font-medium">{MONTHS[i]}</Label>
+  1319→                      <Input
+  1320→                        type="number"
+  1321→                        placeholder="0.00"
+  1322→                        value={sal || ''}
+  1323→                        onChange={e => {
+  1324→                          const newSalaries = [...aguinaldoSalaries]
+  1325→                          newSalaries[i] = parseFloat(e.target.value) || 0
+  1326→                          setAguinaldoSalaries(newSalaries)
+  1327→                        }}
+  1328→                      />
+  1329→                    </div>
+  1330→                  ))}
+  1331→                </div>
+  1332→                <Button onClick={calcAguinaldoLocal} className="bg-emerald-600 hover:bg-emerald-700 gap-2 w-full sm:w-auto">
+  1333→                  <Calculator className="w-4 h-4" /> Calcular Aguinaldo
+  1334→                </Button>
+  1335→              </CardContent>
+  1336→            </Card>
+  1337→
+  1338→            {aguinaldoResult && (
+  1339→              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+  1340→                <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50">
+  1341→                  <CardContent className="p-6">
+  1342→                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+  1343→                      <div className="text-center">
+  1344→                        <p className="text-sm text-muted-foreground mb-1">Total Salarios Brutos</p>
+  1345→                        <p className="text-2xl font-bold text-slate-700" style={{ fontFamily: 'var(--font-poppins)' }}>{fmtCRC(aguinaldoResult.totalGross)}</p>
+  1346→                      </div>
+  1347→                      <div className="text-center">
+  1348→                        <p className="text-sm text-muted-foreground mb-1">Promedio Mensual</p>
+  1349→                        <p className="text-2xl font-bold text-teal-700" style={{ fontFamily: 'var(--font-poppins)' }}>{fmtCRC(aguinaldoResult.averageSalary)}</p>
+  1350→                      </div>
+  1351→                      <div className="text-center bg-emerald-100/50 p-4 rounded-2xl">
+  1352→                        <p className="text-sm text-emerald-600 mb-1 font-medium">🎉 Tu Aguinaldo</p>
+  1353→                        <p className="text-3xl font-bold text-emerald-700" style={{ fontFamily: 'var(--font-poppins)' }}>{fmtCRC(aguinaldoResult.aguinaldoAmount)}</p>
+  1354→                      </div>
+  1355→                    </div>
+  1356→                  </CardContent>
+  1357→                </Card>
+  1358→              </motion.div>
+  1359→            )}
+  1360→
+  1361→            {/* Info card about aguinaldo */}
+  1362→            <Card className="bg-sky-50/50 border-sky-200">
+  1363→              <CardContent className="p-4 flex items-start gap-3">
+  1364→                <Info className="w-5 h-5 text-sky-500 mt-0.5 flex-shrink-0" />
+  1365→                <div className="text-sm text-sky-800">
+  1366→                  <p className="font-semibold mb-1">Normativa de Aguinaldo en Costa Rica</p>
+  1367→                  <ul className="list-disc list-inside space-y-1 text-sky-700">
+  1368→                    <li>El aguinaldo equivale al promedio de los salarios devengados del 1° de diciembre al 30 de noviembre.</li>
+  1369→                    <li>Se debe pagar antes del 20 de diciembre de cada año.</li>
+  1370→                    <li>Es irrenunciable y no puede ser compensado con otras deudas.</li>
+  1371→                    <li>Si trabajaste menos de 12 meses, se promedian los meses trabajados.</li>
+  1372→                  </ul>
+  1373→                </div>
+  1374→              </CardContent>
+  1375→            </Card>
+  1376→          </TabsContent>
+  1377→
+  1378→          {/* ============= TIPS TAB ============= */}
+  1379→          <TabsContent value="tips" className="space-y-6">
+  1380→            <div className="text-center mb-6">
+  1381→              <h2 className="text-2xl font-bold text-slate-800" style={{ fontFamily: 'var(--font-poppins)' }}>
+  1382→                <Sparkles className="w-6 h-6 inline-block mr-2 text-emerald-500" />
+  1383→                Consejos Financieros
+  1384→              </h2>
+  1385→              <p className="text-muted-foreground mt-1">Tips para mejorar tu salud financiera</p>
+  1386→            </div>
+  1387→
+  1388→            {/* Carousel */}
+  1389→            <div className="relative">
+  1390→              <AnimatePresence mode="wait">
+  1391→                <motion.div
+  1392→                  key={tipIndex}
+  1393→                  initial={{ opacity: 0, x: 50 }}
+  1394→                  animate={{ opacity: 1, x: 0 }}
+  1395→                  exit={{ opacity: 0, x: -50 }}
+  1396→                  transition={{ duration: 0.3 }}
+  1397→                  className="max-w-2xl mx-auto"
+  1398→                >
+  1399→                  <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50 overflow-hidden">
+  1400→                    <CardContent className="p-8 sm:p-10 text-center">
+  1401→                      <div className="text-5xl mb-4">{FINANCIAL_TIPS[tipIndex].icon}</div>
+  1402→                      <h3 className="text-xl font-bold text-slate-800 mb-3" style={{ fontFamily: 'var(--font-poppins)' }}>
+  1403→                        {FINANCIAL_TIPS[tipIndex].title}
+  1404→                      </h3>
+  1405→                      <p className="text-muted-foreground leading-relaxed">
+  1406→                        {FINANCIAL_TIPS[tipIndex].desc}
+  1407→                      </p>
+  1408→                    </CardContent>
+  1409→                  </Card>
+  1410→                </motion.div>
+  1411→              </AnimatePresence>
+  1412→
+  1413→              <div className="flex items-center justify-center gap-4 mt-6">
+  1414→                <Button variant="outline" size="icon" onClick={() => setTipIndex((tipIndex - 1 + FINANCIAL_TIPS.length) % FINANCIAL_TIPS.length)}>
+  1415→                  <ChevronLeft className="w-4 h-4" />
+  1416→                </Button>
+  1417→                <div className="flex gap-1.5">
+  1418→                  {FINANCIAL_TIPS.map((_, i) => (
+  1419→                    <button
+  1420→                      key={i}
+  1421→                      onClick={() => setTipIndex(i)}
+  1422→                      className={`w-2 h-2 rounded-full transition-all ${i === tipIndex ? 'bg-emerald-600 w-6' : 'bg-emerald-200'}`}
+  1423→                    />
+  1424→                  ))}
+  1425→                </div>
+  1426→                <Button variant="outline" size="icon" onClick={() => setTipIndex((tipIndex + 1) % FINANCIAL_TIPS.length)}>
+  1427→                  <ChevronRight className="w-4 h-4" />
+  1428→                </Button>
+  1429→              </div>
+  1430→            </div>
+  1431→
+  1432→            {/* All tips grid */}
+  1433→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-8">
+  1434→              {FINANCIAL_TIPS.map((tip, i) => (
+  1435→                <Card
+  1436→                  key={i}
+  1437→                  className={`cursor-pointer transition-all hover:shadow-md ${i === tipIndex ? 'border-emerald-400 shadow-md' : 'hover:border-emerald-200'}`}
+  1438→                  onClick={() => setTipIndex(i)}
+  1439→                >
+  1440→                  <CardContent className="p-4">
+  1441→                    <div className="text-2xl mb-2">{tip.icon}</div>
+  1442→                    <h4 className="font-semibold text-sm text-slate-800 mb-1">{tip.title}</h4>
+  1443→                    <p className="text-xs text-muted-foreground line-clamp-2">{tip.desc}</p>
+  1444→                  </CardContent>
+  1445→                </Card>
+  1446→              ))}
+  1447→            </div>
+  1448→          </TabsContent>
+  1449→        </Tabs>
+  1450→      </main>
+  1451→
+  1452→      {/* ============= FOOTER ============= */}
+  1453→      <footer className="mt-auto bg-slate-900 text-slate-400 py-6">
+  1454→        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+  1455→          <div className="flex items-center justify-center gap-2 mb-2">
+  1456→            <Wallet className="w-4 h-4 text-emerald-500" />
+  1457→            <span className="font-semibold text-white" style={{ fontFamily: 'var(--font-poppins)' }}>BudgetFlow</span>
+  1458→          </div>
+  1459→          <p className="text-xs">Gestión Financiera Inteligente · Costa Rica 🇨🇷</p>
+  1460→          <p className="text-xs mt-1 text-slate-500">Las calculadoras son orientativas. Consulta siempre con tu entidad financiera.</p>
+  1461→        </div>
+  1462→      </footer>
+  1463→    </div>
+  1464→  )
+  1465→}
+  1466→

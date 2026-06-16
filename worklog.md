@@ -1,64 +1,33 @@
-# BudgetFlow - Worklog
+# FinanzasCR — Worklog
 
 ---
 Task ID: 1
 Agent: Main Agent
-Task: Set up Turso database client and SQL schema
+Task: Rename BudgetFlow → FinanzasCR + Complete rebuild with OLED Dark theme
 
 Work Log:
-- Installed @libsql/client, xlsx, jspdf, jspdf-autotable packages
-- Created /src/lib/turso.ts - Turso/libsql client with smart fallback (local SQLite for dev, Turso remote for production)
-- Created /turso-schema.sql - Full SQL schema for Turso deployment
-- Created /src/lib/finance.ts - Financial calculation utilities (amortization, credit card, compound interest, aguinaldo, BP programs)
-- Initialized local SQLite database with all tables and indexes
-- Configured .env with TURSO_DATABASE_URL and TURSO_AUTH_TOKEN
+- Renamed app from BudgetFlow to FinanzasCR
+- Installed sass for SCSS support
+- Created new Turso DB schema (simplified: budgets, income_items, expense_items, savings_goals)
+- Initialized local SQLite database with new schema
+- Updated turso-schema.sql for Turso deployment
+- Updated lib/turso.ts with smart fallback (local SQLite for dev, Turso for production)
+- Created lib/financial.ts with comprehensive CR financial calculations
+- Rebuilt API routes: /api/budgets, /api/budgets/[id], /api/calculators, /api/aguinaldo, /api/goals
+- Built complete single-page application with 6 navigation sections
+- Applied OLED Dark + Glassmorphism theme (bg: #060609, glass cards, gold shimmer)
+- Debit card with flip animation, dynamic gradient, masked number, holder name
+- Dashboard: Health Score, Donut Chart, Bar Chart, Summary Stats, Savings Goals
+- Presupuesto: Full CRUD with income/expense items, export (JSON/XLSX/PDF), import
+- Proyecciones: 4 calculators (CC, Loan, Financing, BP Programs)
+- Aguinaldo: 12 salary inputs + CR law info
+- Consejos: Carousel with 12 tips + category filter
+- Config: Holder name, currency, exchange rate, net salary calculator
+- Sidebar (desktop) + Bottom nav (mobile) navigation
+- Verified with Agent Browser: all sections working, no errors
 
 Stage Summary:
-- Database schema supports: budgets, incomes, fixed_expenses, credit_obligations, emergency_funds, variable_expenses, aguinaldo_calculations
-- All indexes created for performance
-- Smart client: uses local SQLite when no auth token, Turso when token is provided
-
----
-Task ID: 2
-Agent: Main Agent
-Task: Build API routes for budgets CRUD, financial calculations
-
-Work Log:
-- Created /src/app/api/budgets/route.ts - GET (list) and POST (create with all items)
-- Created /src/app/api/budgets/[id]/route.ts - GET (detail) and DELETE
-- Created /src/app/api/calculators/route.ts - POST for loan, credit-card, credit-card-projection, bp-minicuotas, bp-tasa-cero, bp-compra-saldos, amortization-schedule
-- Created /src/app/api/aguinaldo/route.ts - POST (calculate) and GET (history)
-- Created /src/app/api/export/route.ts - POST for budget data export
-
-Stage Summary:
-- Full CRUD API for budgets with all related entities
-- Financial calculators using Costa Rica norms (Banco Popular rates)
-- Aguinaldo calculation following Costa Rica law
-- Export endpoint for JSON/XLSX/PDF
-
----
-Task ID: 3-7
-Agent: Main Agent
-Task: Build frontend - Dashboard, Budget Form, Calculators, Aguinaldo, Tips, Export/Import
-
-Work Log:
-- Created comprehensive single-page application in /src/app/page.tsx
-- Dashboard with debit card visual showing available balance (green for positive, red for negative)
-- Card includes: show/hide balance, income/expense totals, progress bar
-- Summary cards for: Incomes, Fixed Expenses, Credit Obligations, Emergency Funds, Variable Expenses
-- Budget creation dialog with all form sections
-- Budget detail views with scrollable lists
-- Financial Calculators tab: Loan, Credit Card, BP Programs
-- Aguinaldo calculator tab with 12 salary inputs and Costa Rica law info
-- Financial Tips carousel with 8 tips, auto-rotate, grid view
-- Export: JSON and XLSX (client-side using xlsx library)
-- Import: JSON file upload to recreate/edit budgets
-- Responsive design (mobile-first)
-- Sticky footer
-
-Stage Summary:
-- Full-featured budget tracker with debit card visualization
-- All financial calculators working
-- Export/Import functionality complete
-- Responsive across mobile and desktop
-- No lint errors
+- Complete rebuild of app as FinanzasCR
+- All features working and verified
+- Lint passes clean
+- No console errors
