@@ -20,6 +20,30 @@ export const db = createClient({
   authToken: tursoAuthToken,
 })
 
+const schemaColumnCache = new Map<string, Set<string>>()
+
+export async function getTableColumns(table: string) {
+  if (schemaColumnCache.has(table)) {
+    return schemaColumnCache.get(table)!
+  }
+
+  const result = await db.execute({ sql: `PRAGMA table_info(${table})` })
+  const columns = new Set<string>()
+  for (const row of result.rows as Array<Record<string, any>>) {
+    if (typeof row.name === 'string') {
+      columns.add(row.name)
+    }
+  }
+
+  schemaColumnCache.set(table, columns)
+  return columns
+}
+
+export async function hasColumn(table: string, column: string) {
+  const columns = await getTableColumns(table)
+  return columns.has(column)
+}
+
 export function verifyTursoConfig() {
   if (!tursoDatabaseUrl || !tursoAuthToken) {
     throw new Error('TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must both be configured.')

@@ -16,7 +16,7 @@ import {
   AlertTriangle, Info, Check, User, Mail, Lock, KeyRound,
   RotateCcw, FileSpreadsheet, FileJson, Search,
   RefreshCw, Globe, ToggleLeft, ToggleRight, Save,
-  ChevronRight as ChevronRightIcon, Users, Send
+  ChevronRight as ChevronRightIcon, Users, Send, Wifi, Layers
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -133,6 +133,45 @@ function calcNetSalary(gross: number) {
   else if (taxable > 922000) ir = taxable * 0.10
   ir = Math.max(0, ir)
   return { gross, ccss, ir, net: gross - ccss - ir }
+}
+
+const BP_CC_CONFIG = {
+  CRC: { defaultRate: 27.5, floor: 4000 },
+  USD: { defaultRate: 20, floor: 10 },
+} as const
+
+function calcBPCreditCard(params: {
+  currency: 'CRC' | 'USD'
+  principal: number
+  annualRate: number
+  charges: number
+  cuotaTasaCero: number
+  cuotaMinicuotas: number
+  saldoPromedio?: number
+  sobregiro: number
+  mora: number
+}) {
+  const { currency, principal, annualRate, charges, cuotaTasaCero, cuotaMinicuotas, saldoPromedio, sobregiro, mora } = params
+  const promedio = saldoPromedio != null && saldoPromedio > 0 ? saldoPromedio : principal
+  const totalCuotas = cuotaTasaCero + cuotaMinicuotas
+  const obligacionesExtra = sobregiro + mora
+  const tasaMensual = (annualRate / 100) / 12
+  const intereses = promedio * tasaMensual
+  let amortizacion = principal / 60
+  const piso = BP_CC_CONFIG[currency].floor
+  let subtotalMinimo = amortizacion + intereses + charges
+  let appliesFloor = false
+  if (principal > 0 && subtotalMinimo < piso && subtotalMinimo > 0) {
+    amortizacion += piso - subtotalMinimo
+    subtotalMinimo = piso
+    appliesFloor = true
+  }
+  return {
+    amortizacion, intereses, charges, totalCuotas, obligacionesExtra, promedio,
+    pagoMinimoTotal: subtotalMinimo + totalCuotas + obligacionesExtra,
+    pagoContadoTotal: principal + intereses + charges + totalCuotas + obligacionesExtra,
+    appliesFloor,
+  }
 }
 
 // ─── Types ───────────────────────────────────────────────────
@@ -257,89 +296,83 @@ function DebitCard({ balance, holderName, currency, healthScore, exchangeRate }:
   const [showBalance, setShowBalance] = useState(true)
 
   const healthClass = healthScore >= 70 ? 'health-good' : healthScore >= 40 ? 'health-warning' : 'health-danger'
-
   const maskedNumber = '•••• •••• •••• 4829'
-  const cvv = '•••'
 
-  // conversion
-  let convertedLabel = ''
-  let convertedAmount = 0
+  const flipCurrency = currency === 'CRC' ? 'USD' : 'CRC'
+  let flipBalance = balance
   if (exchangeRate) {
-    if (currency === 'CRC') {
-      convertedAmount = exchangeRate.sell > 0 ? balance / exchangeRate.sell : 0
-      convertedLabel = 'USD'
-    } else {
-      convertedAmount = exchangeRate.buy > 0 ? balance * exchangeRate.buy : 0
-      convertedLabel = 'CRC'
-    }
+    flipBalance = currency === 'CRC'
+      ? (exchangeRate.sell > 0 ? balance / exchangeRate.sell : 0)
+      : balance * exchangeRate.buy
   }
 
-  return (
-    <div className="card-flip w-full max-w-sm mx-auto" onClick={() => setFlipped(!flipped)}>
-      <div className={`card-flip-inner ${flipped ? 'flipped' : ''}`}>
-        {/* Front */}
-        <div className={`card-front debit-card ${healthClass} rounded-2xl p-6 text-white cursor-pointer relative`} style={{ minHeight: 200 }}>
-          <div className="flex justify-between items-start mb-6 border-white/10 bg-white/5 hover:bg-indigo-600/6">
-            <div className="flex items-center gap-2">
-              <Landmark size={20} className="opacity-80" />
-              <span className="text-xs font-medium opacity-80">{APP_NAME}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs opacity-60">{currency}</span>
-              <button onClick={(e) => { e.stopPropagation(); setShowBalance(!showBalance) }}
-                className="hover:scale-110 transition-transform">
-                {showBalance ? <Eye size={16} className="opacity-60" /> : <EyeOff size={16} className="opacity-60" />}
-              </button>
-            </div>
-          </div>
+  const renderFace = (faceCurrency: string, faceBalance: number, subtitle?: string) => (
+    <div className={`debit-card visa-card ${healthClass} rounded-2xl p-6 text-white cursor-pointer relative overflow-hidden h-full flex flex-col justify-between`}>
+      <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/5 pointer-events-none" />
+      <div className="absolute -bottom-12 -left-8 w-32 h-32 rounded-full bg-white/5 pointer-events-none" />
 
-          {/* Chip */}
-          <div className="w-12 h-9 rounded-md bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 mb-4 flex items-center justify-center">
-            <div className="w-8 h-6 border border-yellow-700/50 rounded-sm grid grid-cols-2 grid-rows-2 gap-px p-0.5">
-              {[...Array(4)].map((_, i) => <div key={i} className="bg-yellow-700/30 rounded-[1px]" />)}
-            </div>
-          </div>
+      <div className="relative flex justify-between items-start">
+        <div className="flex items-center gap-2">
+          <Landmark size={22} className="opacity-90" />
+          <span className="text-xs font-medium opacity-70">{APP_NAME}</span>
+        </div>
+        <span className="visa-logo opacity-90">VISA</span>
+      </div>
 
-          <div className="text-lg tracking-[0.2em] font-mono mb-4">{maskedNumber}</div>
-
-          <div className="flex justify-between items-end">
-            <div>
-              <p className="text-[10px] uppercase opacity-50 mb-0.5">Titular</p>
-              <p className="text-sm font-medium">{holderName || 'USUARIO'}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase opacity-50 mb-0.5">Disponible</p>
-              <p className="text-lg font-bold">
-                {showBalance ? formatCRC(balance, currency) : '••••••'}
-              </p>
-            </div>
+      <div className="relative flex items-center gap-3">
+        <div className="w-11 h-8 rounded-md bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-600 shadow-inner">
+          <div className="w-full h-full border border-yellow-700/30 rounded-md grid grid-cols-2 grid-rows-2 gap-px p-0.5">
+            {[...Array(4)].map((_, i) => <div key={i} className="bg-yellow-800/20 rounded-[1px]" />)}
           </div>
         </div>
+        <Wifi size={18} className="opacity-50 rotate-90" />
+      </div>
 
-        {/* Back */}
-        <div className="card-back debit-card rounded-2xl p-6 text-white cursor-pointer" style={{ minHeight: 200 }}>
-          <div className="w-full h-10 bg-black/60 rounded mt-2 mb-4" />
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex-1 bg-white/20 rounded px-4 py-2">
-              <p className="text-xs opacity-50">CVV</p>
-              <p className="font-mono text-lg">{cvv}</p>
-            </div>
-          </div>
-          <div className="space-y-2 text-xs opacity-60">
-            <p>Salud Financiera: <span className="font-bold text-white">{healthScore}/100</span></p>
-            <p>{APP_NAME} — Tarjeta de Presupuesto Virtual</p>
-            {exchangeRate && (
-              <p className="text-xs mt-2">Equivalente: <span className="font-bold">{new Intl.NumberFormat('en-US', { style: 'currency', currency: convertedLabel }).format(convertedAmount)}</span></p>
-            )}
-          </div>
-          <div className="mt-4 flex justify-end">
-            <div className="w-16 h-10 rounded bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center">
-              <Landmark size={16} className="text-white" />
-            </div>
-          </div>
+      <div className="relative text-lg tracking-[0.25em] font-mono">{maskedNumber}</div>
+
+      <div className="relative flex justify-between items-end pt-2">
+        <div>
+          <p className="text-[10px] uppercase opacity-50 mb-0.5">Titular</p>
+          <p className="text-sm font-medium tracking-wide">{holderName || 'USUARIO'}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] uppercase opacity-50 mb-0.5">
+            {subtitle || 'Disponible'}
+          </p>
+          <p className="text-xl font-bold tracking-tight">
+            {showBalance ? formatCRC(faceBalance, faceCurrency) : '••••••'}
+          </p>
+          <span className="text-[10px] opacity-60">{faceCurrency}</span>
         </div>
       </div>
-      <p className="text-center text-xs text-muted-foreground mt-2">Toca para voltear</p>
+    </div>
+  )
+
+  return (
+    <div className="card-flip w-full max-w-sm mx-auto" onClick={() => exchangeRate && setFlipped(!flipped)}>
+      <div className={`card-flip-inner ${flipped ? 'flipped' : ''}`}>
+        <div className="card-front">
+          {renderFace(currency, balance)}
+        </div>
+        <div className="card-back">
+          {exchangeRate
+            ? renderFace(flipCurrency, flipBalance, `Equivalente en ${flipCurrency}`)
+            : renderFace(currency, balance, 'Sin tipo de cambio')}
+        </div>
+      </div>
+      <div className="flex items-center justify-center gap-2 mt-2">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setShowBalance(!showBalance) }}
+          className="text-xs text-muted-foreground hover:text-indigo-400 transition-colors flex items-center gap-1"
+        >
+          {showBalance ? <Eye size={12} /> : <EyeOff size={12} />}
+          {showBalance ? 'Ocultar saldo' : 'Mostrar saldo'}
+        </button>
+        {exchangeRate && (
+          <span className="text-xs text-muted-foreground">· Toca la tarjeta para ver en {flipCurrency}</span>
+        )}
+      </div>
     </div>
   )
 }
@@ -423,9 +456,15 @@ function IncomeExpenseBar({ totalIncome, totalExpenses }: { totalIncome: number;
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
           <XAxis type="number" tickFormatter={formatCompact} stroke="rgba(255,255,255,0.2)" fontSize={11} />
           <YAxis type="category" dataKey="name" stroke="rgba(255,255,255,0.2)" fontSize={11} width={60} />
-          <RechartsTooltip formatter={(v: number) => formatCRC(v)} />
-          <Bar dataKey="Ingresos" fill="#10B981" radius={[0, 4, 4, 0]} />
-          <Bar dataKey="Gastos" fill="#EF4444" radius={[0, 4, 4, 0]} />
+          <RechartsTooltip
+            formatter={(v: number) => formatCRC(v)}
+            contentStyle={{ background: '#0F0F1A', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '0.75rem' }}
+            labelStyle={{ color: '#94A3B8' }}
+            itemStyle={{ color: '#E2E8F0' }}
+            cursor={{ fill: 'rgba(99,102,241,0.08)' }}
+          />
+          <Bar dataKey="Ingresos" fill="#10B981" radius={[0, 4, 4, 0]} activeBar={{ fill: '#34D399' }} />
+          <Bar dataKey="Gastos" fill="#EF4444" radius={[0, 4, 4, 0]} activeBar={{ fill: '#F87171' }} />
         </BarChart>
       </ResponsiveContainer>
     </Card>
@@ -436,7 +475,7 @@ function IncomeExpenseBar({ totalIncome, totalExpenses }: { totalIncome: number;
 function DashboardPage({ budgets, goals, exchangeRate, userName }: {
   budgets: Budget[]; goals: Goal[]; exchangeRate: { buy: number; sell: number } | null; userName: string
 }) {
-  const activeBudget = budgets[0]
+  const activeBudget = budgets[0] || null
   const totalIncome = activeBudget?.incomes.reduce((s, i) => s + i.amount, 0) || 0
   const totalExpenses = activeBudget?.expenses.reduce((s, e) => s + e.amount, 0) || 0
   const totalCredit = activeBudget?.expenses.filter(e => e.category === 'credit').reduce((s, e) => s + e.amount, 0) || 0
@@ -449,15 +488,43 @@ function DashboardPage({ budgets, goals, exchangeRate, userName }: {
 
   const currency = activeBudget?.currency || 'CRC'
 
+  if (!activeBudget) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">¡Hola, {userName}!</h1>
+            <p className="text-muted-foreground text-sm">Crea tu primer presupuesto para empezar a ver tu resumen financiero.</p>
+          </div>
+          {exchangeRate && (
+            <div className="glass rounded-lg px-3 py-2 text-xs">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Globe size={12} /> Tipo de cambio al día de hoy
+              </div>
+              <div className="flex gap-3 mt-0.5">
+                <span className="text-green-400">Compra: {formatCRC(exchangeRate.buy, 'USD')}</span>
+                <span className="text-orange-400">Venta: {formatCRC(exchangeRate.sell, 'USD')}</span>
+              </div>
+            </div>
+          )}
+        </div>
+        <Card className="glass border-white/5 p-6 text-center">
+          <h2 className="text-lg font-semibold mb-2">No hay presupuestos</h2>
+          <p className="text-sm text-muted-foreground mb-4">Crea un presupuesto en la pestaña de Presupuesto para comenzar a registrar ingresos y gastos.</p>
+        </Card>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-        <div className="flex items-center justify-between">
+    <div className="space-y-8">
+        <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold">¡Hola, {userName}!</h1>
           <p className="text-muted-foreground text-sm">Aquí está tu resumen financiero</p>
         </div>
         {exchangeRate && (
-          <div className="glass rounded-lg px-3 py-2 text-xs">
+          <div className="glass rounded-lg px-3 py-2 text-xs shrink-0">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Globe size={12} /> Tipo de cambio al día de hoy
             </div>
@@ -469,37 +536,36 @@ function DashboardPage({ budgets, goals, exchangeRate, userName }: {
         )}
       </div>
 
-      {/* Debit Card */}
-      <DebitCard balance={available} holderName={userName} currency={currency} healthScore={healthScore} exchangeRate={exchangeRate} />
+      <div className="grid gap-6 xl:grid-cols-[minmax(320px,420px)_1fr]">
+        <div className="space-y-6">
+          {/* Debit Card */}
+          <DebitCard balance={available} holderName={userName} currency={currency} healthScore={healthScore} exchangeRate={exchangeRate} />
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Ingresos', value: totalIncome, icon: <TrendingUp size={18} />, color: 'text-green-400' },
-          { label: 'Gastos', value: totalExpenses, icon: <TrendingDown size={18} />, color: 'text-red-400' },
-          { label: 'Disponible', value: available, icon: <Wallet size={18} />, color: available >= 0 ? 'text-emerald-400' : 'text-red-400' },
-          { label: 'Deuda TC', value: totalCredit, icon: <CreditCard size={18} />, color: 'text-orange-400' },
-        ].map((stat, i) => (
-          <Card key={i} className="glass border-white/5 p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <span className={stat.color}>{stat.icon}</span>
-              <span className="text-xs text-muted-foreground">{stat.label}</span>
-            </div>
-            <p className={`text-lg font-bold ${stat.color}`}>{formatCompact(stat.value)}</p>
-          </Card>
-        ))}
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { label: 'Ingresos', value: totalIncome, icon: <TrendingUp size={18} />, color: 'text-green-400' },
+              { label: 'Gastos', value: totalExpenses, icon: <TrendingDown size={18} />, color: 'text-red-400' },
+              { label: 'Disponible', value: available, icon: <Wallet size={18} />, color: available >= 0 ? 'text-emerald-400' : 'text-red-400' },
+              { label: 'Deuda TC', value: totalCredit, icon: <CreditCard size={18} />, color: 'text-orange-400' },
+            ].map((stat, i) => (
+              <Card key={i} className="glass border-white/5 p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={stat.color}>{stat.icon}</span>
+                  <span className="text-xs text-muted-foreground">{stat.label}</span>
+                </div>
+                <p className={`text-lg font-bold ${stat.color}`}>{formatCompact(stat.value)}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4">
+          <HealthScoreGauge score={healthScore} />
+          <IncomeExpenseBar totalIncome={totalIncome} totalExpenses={totalExpenses} />
+          <ExpenseDonut expenses={activeBudget.expenses.map(e => ({ category: e.category, amount: e.amount }))} />
+        </div>
       </div>
-
-      {/* Health Score + Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <HealthScoreGauge score={healthScore} />
-        <IncomeExpenseBar totalIncome={totalIncome} totalExpenses={totalExpenses} />
-      </div>
-
-      {/* Expense Donut */}
-      {activeBudget && (
-        <ExpenseDonut expenses={activeBudget.expenses.map(e => ({ category: e.category, amount: e.amount }))} />
-      )}
 
       {/* Goals Quick View */}
       {goals.length > 0 && (
@@ -523,35 +589,60 @@ function DashboardPage({ budgets, goals, exchangeRate, userName }: {
 }
 
 // ─── Presupuesto Page ────────────────────────────────────────
-function PresupuestoPage({ budgets, userId, onRefresh }: {
-  budgets: Budget[]; userId: string; onRefresh: () => void
+function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }: {
+  budgets: Budget[]; userId: string; onRefresh: () => void; userName?: string; exchangeRate?: { buy: number; sell: number; source: string; date: string } | null
 }) {
+  const { data: session } = useSession()
+  const effectiveUserId = userId || (session?.user as any)?.id || ''
+
   const [activeBudget, setActiveBudget] = useState<Budget | null>(budgets[0] || null)
-  const [newIncome, setNewIncome] = useState({ category: 'salary', description: '', amount: 0 })
-  const [newExpense, setNewExpense] = useState({ category: 'fixed', description: '', amount: 0 })
+  const [newIncome, setNewIncome] = useState({ category: 'salary', description: '', amount: 0, currency: 'CRC' })
+  const [newExpense, setNewExpense] = useState({ category: 'fixed', description: '', amount: 0, currency: 'CRC' })
   const [showNewBudget, setShowNewBudget] = useState(false)
   const [budgetName, setBudgetName] = useState('')
   const [budgetPeriod, setBudgetPeriod] = useState('monthly')
   const [budgetCurrency, setBudgetCurrency] = useState('CRC')
   const [saving, setSaving] = useState(false)
 
+  useEffect(() => {
+    if (budgets.length === 0) {
+      setActiveBudget(null)
+      return
+    }
+    setActiveBudget(prev => {
+      if (!prev || !budgets.some(b => b.id === prev.id)) return budgets[0]
+      return budgets.find(b => b.id === prev.id) || budgets[0]
+    })
+  }, [budgets])
+
   const totalIncome = activeBudget?.incomes.reduce((s, i) => s + i.amount, 0) || 0
   const totalExpenses = activeBudget?.expenses.reduce((s, e) => s + e.amount, 0) || 0
   const available = totalIncome - totalExpenses
 
   const createBudget = async () => {
-    if (!budgetName) { toast.error('Nombre requerido'); return }
-    if (!userId) { toast.error('Usuario no identificado'); return }
+    const name = budgetName.trim()
+    if (!name) { toast.error('Ingresa un nombre para el presupuesto'); return }
+    if (!effectiveUserId) { toast.error('Sesión no válida. Cierra sesión e ingresa de nuevo.'); return }
     setSaving(true)
     try {
       const res = await fetch('/api/budgets', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: budgetName, period: budgetPeriod, currency: budgetCurrency, userId }),
+        body: JSON.stringify({
+          name, period: budgetPeriod, currency: budgetCurrency,
+          userId: effectiveUserId, holderName: userName || (session?.user as any)?.name || null,
+        }),
       })
       const data = await res.json()
-      if (res.ok) { toast.success('Presupuesto creado'); setShowNewBudget(false); onRefresh() }
-      else { toast.error(data?.error || 'Error creando presupuesto') }
-    } catch { toast.error('Error al crear') }
+      if (res.ok) {
+        toast.success('Presupuesto creado')
+        setShowNewBudget(false)
+        setBudgetName('')
+        setActiveBudget({ ...data, incomes: data.incomes || [], expenses: data.expenses || [] })
+        onRefresh()
+      } else {
+        toast.error(data?.error || 'Error creando presupuesto')
+      }
+    } catch { toast.error('Error al crear presupuesto') }
     finally { setSaving(false) }
   }
 
@@ -559,53 +650,86 @@ function PresupuestoPage({ budgets, userId, onRefresh }: {
     if (!activeBudget || !newIncome.description || newIncome.amount <= 0) return
     setSaving(true)
     try {
-      const updated = { ...activeBudget, incomes: [...activeBudget.incomes, { ...newIncome, id: crypto.randomUUID() }] }
-      await fetch(`/api/budgets/${activeBudget.id}`, {
+      // Convert USD to CRC if necessary
+      let amountInBudgetCurrency = newIncome.amount
+      if (newIncome.currency !== activeBudget.currency && newIncome.currency === 'USD' && exchangeRate?.buy) {
+        amountInBudgetCurrency = newIncome.amount * exchangeRate.buy
+      } else if (newIncome.currency !== activeBudget.currency && newIncome.currency === 'CRC' && exchangeRate?.sell) {
+        amountInBudgetCurrency = newIncome.amount / exchangeRate.sell
+      }
+      const incomeToAdd = { ...newIncome, amount: amountInBudgetCurrency, currency: activeBudget.currency, id: crypto.randomUUID() }
+      const updated = { ...activeBudget, incomes: [...activeBudget.incomes, incomeToAdd] }
+      const res = await fetch(`/api/budgets/${activeBudget.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated),
       })
+      if (!res.ok) throw new Error('Error updating budget')
       setActiveBudget(updated)
-      setNewIncome({ category: 'salary', description: '', amount: 0 })
+      setNewIncome({ category: 'salary', description: '', amount: 0, currency: 'CRC' })
+      onRefresh()
       toast.success('Ingreso agregado')
-    } catch { toast.error('Error al agregar') }
-    finally { setSaving(false) }
+    } catch {
+      toast.error('Error al agregar')
+    } finally { setSaving(false) }
   }
 
   const addExpense = async () => {
     if (!activeBudget || !newExpense.description || newExpense.amount <= 0) return
     setSaving(true)
     try {
-      const updated = { ...activeBudget, expenses: [...activeBudget.expenses, { ...newExpense, id: crypto.randomUUID() }] }
-      await fetch(`/api/budgets/${activeBudget.id}`, {
+      // Convert USD to CRC if necessary
+      let amountInBudgetCurrency = newExpense.amount
+      if (newExpense.currency !== activeBudget.currency && newExpense.currency === 'USD' && exchangeRate?.buy) {
+        amountInBudgetCurrency = newExpense.amount * exchangeRate.buy
+      } else if (newExpense.currency !== activeBudget.currency && newExpense.currency === 'CRC' && exchangeRate?.sell) {
+        amountInBudgetCurrency = newExpense.amount / exchangeRate.sell
+      }
+      const expenseToAdd = { ...newExpense, amount: amountInBudgetCurrency, currency: activeBudget.currency, id: crypto.randomUUID() }
+      const updated = { ...activeBudget, expenses: [...activeBudget.expenses, expenseToAdd] }
+      const res = await fetch(`/api/budgets/${activeBudget.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated),
       })
+      if (!res.ok) throw new Error('Error updating budget')
       setActiveBudget(updated)
-      setNewExpense({ category: 'fixed', description: '', amount: 0 })
+      setNewExpense({ category: 'fixed', description: '', amount: 0, currency: 'CRC' })
+      onRefresh()
       toast.success('Gasto agregado')
-    } catch { toast.error('Error al agregar') }
-    finally { setSaving(false) }
+    } catch {
+      toast.error('Error al agregar')
+    } finally { setSaving(false) }
   }
 
   const removeIncome = async (idx: number) => {
     if (!activeBudget) return
     const updated = { ...activeBudget, incomes: activeBudget.incomes.filter((_, i) => i !== idx) }
-    await fetch(`/api/budgets/${activeBudget.id}`, {
+    const res = await fetch(`/api/budgets/${activeBudget.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updated),
     })
-    setActiveBudget(updated)
-    toast.success('Ingreso eliminado')
+    if (res.ok) {
+      setActiveBudget(updated)
+      onRefresh()
+      toast.success('Ingreso eliminado')
+    } else {
+      toast.error('Error al eliminar ingreso')
+    }
   }
 
   const removeExpense = async (idx: number) => {
     if (!activeBudget) return
     const updated = { ...activeBudget, expenses: activeBudget.expenses.filter((_, i) => i !== idx) }
-    await fetch(`/api/budgets/${activeBudget.id}`, {
+    const res = await fetch(`/api/budgets/${activeBudget.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updated),
     })
-    setActiveBudget(updated)
+    if (res.ok) {
+      setActiveBudget(updated)
+      onRefresh()
+      toast.success('Gasto eliminado')
+    } else {
+      toast.error('Error al eliminar gasto')
+    }
     toast.success('Gasto eliminado')
   }
 
@@ -732,7 +856,7 @@ function PresupuestoPage({ budgets, userId, onRefresh }: {
               </div>
               <Separator className="bg-white/5 mb-3" />
               <div className="space-y-2">
-                <Input placeholder="Descripción" value={newIncome.description}
+                <Input placeholder="Descripción (ej: Salario, Bonificación)" value={newIncome.description}
                   onChange={e => setNewIncome({ ...newIncome, description: e.target.value })}
                   className="bg-white/5 border-white/10 text-sm" />
                 <div className="flex gap-2">
@@ -742,9 +866,18 @@ function PresupuestoPage({ budgets, userId, onRefresh }: {
                       {INCOME_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="flex gap-2">
                   <Input type="number" placeholder="Monto" value={newIncome.amount || ''}
                     onChange={e => setNewIncome({ ...newIncome, amount: parseFloat(e.target.value) || 0 })}
-                    className="bg-white/5 border-white/10 text-sm w-28" />
+                    className="bg-white/5 border-white/10 text-sm flex-1" />
+                  <Select value={newIncome.currency} onValueChange={v => setNewIncome({ ...newIncome, currency: v })}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-sm w-20"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CRC">₡ CRC</SelectItem>
+                      <SelectItem value="USD">$ USD</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button size="sm" onClick={addIncome} disabled={saving} className="bg-green-600 hover:bg-green-700">
                     <Plus size={14} />
                   </Button>
@@ -776,7 +909,7 @@ function PresupuestoPage({ budgets, userId, onRefresh }: {
               </div>
               <Separator className="bg-white/5 mb-3" />
               <div className="space-y-2">
-                <Input placeholder="Descripción" value={newExpense.description}
+                <Input placeholder="Descripción (ej: Comida, Transporte, Servicios)" value={newExpense.description}
                   onChange={e => setNewExpense({ ...newExpense, description: e.target.value })}
                   className="bg-white/5 border-white/10 text-sm" />
                 <div className="flex gap-2">
@@ -786,9 +919,18 @@ function PresupuestoPage({ budgets, userId, onRefresh }: {
                       {EXPENSE_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="flex gap-2">
                   <Input type="number" placeholder="Monto" value={newExpense.amount || ''}
                     onChange={e => setNewExpense({ ...newExpense, amount: parseFloat(e.target.value) || 0 })}
-                    className="bg-white/5 border-white/10 text-sm w-28" />
+                    className="bg-white/5 border-white/10 text-sm flex-1" />
+                  <Select value={newExpense.currency} onValueChange={v => setNewExpense({ ...newExpense, currency: v })}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-sm w-20"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CRC">₡ CRC</SelectItem>
+                      <SelectItem value="USD">$ USD</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button size="sm" onClick={addExpense} disabled={saving} className="bg-red-600 hover:bg-red-700">
                     <Plus size={14} />
                   </Button>
@@ -948,77 +1090,177 @@ function LoanCalc() {
 }
 
 function CreditCardCalc() {
+  const [currency, setCurrency] = useState<'CRC' | 'USD'>('CRC')
   const [principal, setPrincipal] = useState(1000000)
-  const [rate, setRate] = useState(27.5)
-  const [payment, setPayment] = useState(50000)
-  const [result, setResult] = useState<any>(null)
+  const [rate, setRate] = useState(BP_CC_CONFIG.CRC.defaultRate)
+  const [charges, setCharges] = useState(0)
+  const [tasaCeroOn, setTasaCeroOn] = useState(false)
+  const [minicuotasOn, setMinicuotasOn] = useState(false)
+  const [cuotaTasaCero, setCuotaTasaCero] = useState(0)
+  const [cuotaMinicuotas, setCuotaMinicuotas] = useState(0)
+  const [expertoOn, setExpertoOn] = useState(false)
+  const [saldoPromedio, setSaldoPromedio] = useState<number | null>(null)
+  const [sobregiro, setSobregiro] = useState(0)
+  const [mora, setMora] = useState(0)
 
-  const calculate = async () => {
-    const res = await fetch('/api/calculators', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'creditCard', principal, annualRate: rate / 100, monthlyPayment: payment }),
-    })
-    setResult(await res.json())
+  const setMoneda = (m: 'CRC' | 'USD') => {
+    setCurrency(m)
+    setRate(BP_CC_CONFIG[m].defaultRate)
   }
 
+  const result = calcBPCreditCard({
+    currency, principal, annualRate: rate, charges,
+    cuotaTasaCero: tasaCeroOn ? cuotaTasaCero : 0,
+    cuotaMinicuotas: minicuotasOn ? cuotaMinicuotas : 0,
+    saldoPromedio: expertoOn ? (saldoPromedio ?? undefined) : undefined,
+    sobregiro: expertoOn ? sobregiro : 0,
+    mora: expertoOn ? mora : 0,
+  })
+
   return (
-    <Card className="glass border-white/5 p-6">
-      <h3 className="font-semibold mb-4 flex items-center gap-2"><CreditCard size={18} /> Proyección de Tarjeta de Crédito</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Saldo Actual (₡)</Label>
-            <Input type="number" value={principal} onChange={e => setPrincipal(parseFloat(e.target.value) || 0)}
-              className="bg-white/5 border-white/10" />
-          </div>
-          <div className="space-y-2">
-            <Label>Tasa Anual (%)</Label>
-            <Input type="number" value={rate} onChange={e => setRate(parseFloat(e.target.value) || 0)} step={0.01}
-              className="bg-white/5 border-white/10" />
-          </div>
-          <div className="space-y-2">
-            <Label>Pago Mensual (₡)</Label>
-            <Input type="number" value={payment} onChange={e => setPayment(parseFloat(e.target.value) || 0)}
-              className="bg-white/5 border-white/10" />
-          </div>
-          <Button onClick={calculate} className="w-full bg-indigo-600 hover:bg-indigo-700">Calcular</Button>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h3 className="font-semibold flex items-center gap-2">
+          <CreditCard size={18} className="text-[var(--bp-orange)]" /> Simulador Tarjeta de Crédito BP
+        </h3>
+        <div className="flex gap-1 p-1 rounded-lg bg-white/5 border border-white/10">
+          <button type="button" onClick={() => setMoneda('CRC')}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${currency === 'CRC' ? 'bg-[var(--bp-purple)] text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+            CRC ₡
+          </button>
+          <button type="button" onClick={() => setMoneda('USD')}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${currency === 'USD' ? 'bg-[var(--bp-purple)] text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+            USD $
+          </button>
         </div>
-        {result && !result.error && (
-          <div className="space-y-3">
-            <div className="glass-strong rounded-xl p-4">
-              <p className="text-sm text-muted-foreground">Meses para liquidar</p>
-              <p className="text-2xl font-bold text-indigo-400">{result.payoffMonths === -1 ? '∞' : `${result.payoffMonths} meses`}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="glass rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Total Intereses</p>
-                <p className="text-sm font-bold text-orange-400">{formatCRC(result.totalInterest)}</p>
-              </div>
-              <div className="glass rounded-lg p-3">
-                <p className="text-xs text-muted-foreground">Total a Pagar</p>
-                <p className="text-sm font-bold">{formatCRC(result.totalPaid)}</p>
-              </div>
-            </div>
-            {result.projection && (
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={result.projection.filter((_: any, i: number) => i % 3 === 0)}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="month" stroke="rgba(255,255,255,0.2)" fontSize={10} />
-                  <YAxis tickFormatter={formatCompact} stroke="rgba(255,255,255,0.2)" fontSize={10} />
-                  <RechartsTooltip formatter={(v: number) => formatCRC(v)} />
-                  <Bar dataKey="balance" fill="#EF4444" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        )}
-        {result?.error && (
-          <Card className="border-red-500/30 bg-red-500/10 p-4">
-            <p className="text-red-400 flex items-center gap-2"><AlertTriangle size={16} /> {result.error}</p>
-          </Card>
-        )}
       </div>
-    </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-7 space-y-4">
+          <Card className="glass border-white/5 p-5">
+            <h4 className="font-medium text-sm mb-4 flex items-center gap-2"><Wallet size={16} className="text-[var(--bp-purple-light)]" /> Datos Principales</h4>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Saldo Principal Adeudado</Label>
+                <Input type="number" value={principal || ''} onChange={e => setPrincipal(parseFloat(e.target.value) || 0)}
+                  className="bg-white/5 border-white/10 text-lg" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Tasa Anual (%)</Label>
+                  <Input type="number" value={rate} onChange={e => setRate(parseFloat(e.target.value) || 0)} step={0.01}
+                    className="bg-white/5 border-white/10" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cargos Administrativos</Label>
+                  <Input type="number" value={charges || ''} onChange={e => setCharges(parseFloat(e.target.value) || 0)}
+                    className="bg-white/5 border-white/10" />
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="glass border-white/5 p-5">
+            <h4 className="font-medium text-sm mb-4 flex items-center gap-2"><Layers size={16} className="text-[var(--bp-purple-light)]" /> Planes de Lealtad (Al 100%)</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className={`bp-switch-card rounded-xl p-4 ${tasaCeroOn ? 'active' : ''}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm cursor-pointer">Tasa Cero</Label>
+                  <Switch checked={tasaCeroOn} onCheckedChange={setTasaCeroOn} />
+                </div>
+                {tasaCeroOn && (
+                  <div className="space-y-1 mt-2">
+                    <Label className="text-xs text-muted-foreground">Cuota mensual facturada</Label>
+                    <Input type="number" value={cuotaTasaCero || ''} onChange={e => setCuotaTasaCero(parseFloat(e.target.value) || 0)}
+                      className="bg-white/5 border-white/10 h-9" />
+                  </div>
+                )}
+              </div>
+              <div className={`bp-switch-card rounded-xl p-4 ${minicuotasOn ? 'active' : ''}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm cursor-pointer">BP Minicuotas</Label>
+                  <Switch checked={minicuotasOn} onCheckedChange={setMinicuotasOn} />
+                </div>
+                {minicuotasOn && (
+                  <div className="space-y-1 mt-2">
+                    <Label className="text-xs text-muted-foreground">Cuota mensual facturada</Label>
+                    <Input type="number" value={cuotaMinicuotas || ''} onChange={e => setCuotaMinicuotas(parseFloat(e.target.value) || 0)}
+                      className="bg-white/5 border-white/10 h-9" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="glass border-white/5 p-5 bg-[#12121f]">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h4 className="font-medium text-sm flex items-center gap-2"><Settings size={16} className="text-[var(--bp-orange)]" /> Modo Experto</h4>
+                <p className="text-xs text-muted-foreground">Calibración avanzada</p>
+              </div>
+              <Switch checked={expertoOn} onCheckedChange={setExpertoOn} />
+            </div>
+            {expertoOn && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/10">
+                <div className="sm:col-span-2 space-y-2">
+                  <Label className="text-xs">Saldo Promedio Diario</Label>
+                  <p className="text-[10px] text-muted-foreground">Si se deja vacío, se usa el saldo principal.</p>
+                  <Input type="number" placeholder="Mismo que el principal" value={saldoPromedio ?? ''}
+                    onChange={e => setSaldoPromedio(e.target.value === '' ? null : parseFloat(e.target.value))}
+                    className="bg-white/5 border-white/10" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Sobregiro (Al 100%)</Label>
+                  <Input type="number" value={sobregiro || ''} onChange={e => setSobregiro(parseFloat(e.target.value) || 0)}
+                    className="bg-white/5 border-white/10" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Saldo en Mora (Al 100%)</Label>
+                  <Input type="number" value={mora || ''} onChange={e => setMora(parseFloat(e.target.value) || 0)}
+                    className="bg-white/5 border-white/10" />
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        <div className="lg:col-span-5 space-y-4">
+          <Card className="glass-strong border-white/5 p-5 bp-result-min">
+            <div className="flex justify-between items-start mb-1">
+              <h4 className="font-bold">Pago Mínimo</h4>
+              {result.appliesFloor && (
+                <Badge variant="outline" className="text-[10px] border-red-500/40 text-red-400">Aplica Piso Base</Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">Total a pagar para no caer en mora</p>
+            <p className="text-3xl font-extrabold text-[var(--bp-orange)] mb-4">
+              {formatCRC(result.pagoMinimoTotal, currency)}
+            </p>
+            <div className="space-y-2 bg-white/3 p-3 rounded-xl text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Amortización (P/60)</span><span>{formatCRC(result.amortizacion, currency)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Intereses</span><span>{formatCRC(result.intereses, currency)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Cargos Admin.</span><span>{formatCRC(result.charges, currency)}</span></div>
+              {result.obligacionesExtra > 0 && (
+                <div className="flex justify-between text-red-400"><span>Sobregiro + Mora</span><span>{formatCRC(result.obligacionesExtra, currency)}</span></div>
+              )}
+              <div className="flex justify-between border-t border-white/10 pt-2 font-semibold">
+                <span className="text-[var(--bp-purple-light)]">Cuotas (TC / MC)</span>
+                <span>{formatCRC(result.totalCuotas, currency)}</span>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="border-0 p-5 text-white bp-result-contado">
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="font-semibold">Pago de Contado</h4>
+              <Check size={18} className="opacity-80" />
+            </div>
+            <p className="text-[11px] opacity-80 mb-3">Cancele este monto para no generar nuevos intereses de financiamiento.</p>
+            <p className="text-3xl font-bold">{formatCRC(result.pagoContadoTotal, currency)}</p>
+          </Card>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1058,15 +1300,15 @@ function BPLoyaltyCalc() {
 
   return (
     <Card className="glass border-white/5 p-6">
-      <h3 className="font-semibold mb-4 flex items-center gap-2"><Landmark size={18} className="text-purple-400" /> Planes de Lealtad BP</h3>
+      <h3 className="font-semibold mb-4 flex items-center gap-2"><Landmark size={18} className="text-purple-400" /> Extrafinanciamientos</h3>
 
       {/* Program selector */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {programs.map(p => (
           <button key={p.id} onClick={() => { setProgram(p.id); setResult(null) }}
             className={`p-3 rounded-xl border text-left transition-all ${program === p.id
               ? 'border-purple-500 bg-purple-500/10'
-              : 'border-white/5 bg-white/3 hover:bg-indigo-600/6'`}>
+              : 'border-white/5 bg-white/3 hover:bg-indigo-600/6'}`}>
             <div className="flex items-center gap-2 mb-1 text-purple-400">{p.icon} <span className="font-medium text-sm">{p.name}</span></div>
             <p className="text-xs text-muted-foreground">{p.desc}</p>
           </button>
@@ -1282,18 +1524,24 @@ function AguinaldoPage() {
 function SavingsGoalsPage({ goals, userId, onRefresh }: {
   goals: Goal[]; userId: string; onRefresh: () => void
 }) {
+  const { data: session } = useSession()
+  const effectiveUserId = userId || (session?.user as any)?.id || ''
+
   const [showNew, setShowNew] = useState(false)
   const [newGoal, setNewGoal] = useState({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', currency: 'CRC' })
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const createGoal = async () => {
-    if (!newGoal.name) { toast.error('Nombre de meta requerido'); return }
-    if (newGoal.targetAmount <= 0) { toast.error('Monto objetivo debe ser mayor a 0'); return }
-    if (!userId) { toast.error('Usuario no identificado'); return }
+    const name = newGoal.name.trim()
+    if (!name) { toast.error('Ingresa un nombre para la meta'); return }
+    if (newGoal.targetAmount <= 0) { toast.error('El monto objetivo debe ser mayor a 0'); return }
+    if (!effectiveUserId) { toast.error('Sesión no válida. Cierra sesión e ingresa de nuevo.'); return }
+    setSaving(true)
     try {
       const res = await fetch('/api/goals', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newGoal, userId }),
+        body: JSON.stringify({ ...newGoal, name, userId: effectiveUserId }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -1304,7 +1552,8 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
       } else {
         toast.error(data?.error || 'Error creando meta')
       }
-    } catch (e) { toast.error('Error al crear meta') }
+    } catch { toast.error('Error al crear meta') }
+    finally { setSaving(false) }
   }
 
   const updateGoal = async () => {
@@ -1372,7 +1621,9 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
                 </Select>
               </div>
             </div>
-            <Button onClick={createGoal} className="w-full bg-indigo-600 hover:bg-indigo-700">Crear Meta</Button>
+            <Button onClick={createGoal} disabled={saving} className="w-full bg-indigo-600 hover:bg-indigo-700">
+              {saving ? 'Creando...' : 'Crear Meta'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1444,67 +1695,175 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
 // ─── Tips Carousel Page ──────────────────────────────────────
 function TipsCarouselPage() {
   const [current, setCurrent] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => setCurrent(c => (c + 1) % TIPS.length), 4500)
-    return () => clearInterval(id)
-  }, [])
+  const [direction, setDirection] = useState(0)
+
+  const navigate = (newIndex: number) => {
+    setDirection(newIndex > current ? 1 : -1)
+    setCurrent(newIndex)
+  }
+
+  const goNext = () => navigate((current + 1) % TIPS.length)
+  const goPrev = () => navigate((current - 1 + TIPS.length) % TIPS.length)
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Consejos Financieros</h1>
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Consejos Financieros</h1>
+          <p className="text-sm text-muted-foreground mt-1">Aprende estrategias para mejorar tu salud financiera</p>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-bold text-indigo-400">{current + 1}</div>
+          <div className="text-xs text-muted-foreground">de {TIPS.length}</div>
+        </div>
+      </div>
+
+      {/* Main carousel card */}
       <div className="relative">
         <AnimatePresence mode="wait">
           <motion.div
             key={current}
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.3 }}
+            initial={{ opacity: 0, x: direction > 0 ? 40 : -40, scale: 0.98 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: direction > 0 ? -40 : 40, scale: 0.98 }}
+            transition={{ duration: 0.4, ease: "easeInOut" }}
           >
-            <Card className="glass-strong border-white/5 p-8">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center flex-shrink-0 text-indigo-400">
-                  {TIPS[current].icon}
+            <div className="relative overflow-hidden rounded-3xl">
+              {/* Background gradient decorative elements */}
+              <div className="absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br from-indigo-500/20 to-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-gradient-to-tr from-purple-600/15 to-pink-600/10 rounded-full blur-3xl pointer-events-none" />
+
+              <Card className="relative border-white/10 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm p-10 lg:p-12">
+                <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center gap-8">
+                  {/* Icon container */}
+                  <div className="flex-shrink-0">
+                    <motion.div
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.5, delay: 0.1 }}
+                      className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-500/30 via-purple-500/20 to-pink-500/20 flex items-center justify-center flex-shrink-0 text-5xl ring-1 ring-white/20 shadow-xl"
+                    >
+                      {TIPS[current].icon}
+                    </motion.div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: 0.15 }}
+                    >
+                      <h2 className="text-3xl lg:text-4xl font-bold mb-3 bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
+                        {TIPS[current].title}
+                      </h2>
+                      <p className="text-base lg:text-lg text-gray-300 leading-relaxed mb-5">
+                        {TIPS[current].desc}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-medium border border-indigo-500/30">
+                          💡 Consejo Práctico
+                        </span>
+                        <span className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-medium border border-purple-500/30">
+                          Impacto Alto
+                        </span>
+                      </div>
+                    </motion.div>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold mb-2">{TIPS[current].title}</h2>
-                  <p className="text-muted-foreground leading-relaxed">{TIPS[current].desc}</p>
-                </div>
-              </div>
-            </Card>
+              </Card>
+            </div>
           </motion.div>
         </AnimatePresence>
 
-        <div className="flex items-center justify-center gap-4 mt-6">
-          <Button variant="ghost" size="sm" onClick={() => setCurrent((current - 1 + TIPS.length) % TIPS.length)}>
-            <ChevronLeft size={20} />
-          </Button>
-          <div className="flex gap-1.5">
+        {/* Navigation buttons */}
+        <div className="flex items-center justify-between mt-8 px-2">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={goPrev}
+            className="p-3 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-white/10 hover:border-indigo-500/50 transition-all text-indigo-300 hover:text-indigo-200"
+          >
+            <ChevronLeft size={24} />
+          </motion.button>
+
+          {/* Progress indicators */}
+          <div className="flex gap-2 items-center">
             {TIPS.map((_, i) => (
-              <button key={i} onClick={() => setCurrent(i)}
-                className={`w-2 h-2 rounded-full transition-all ${i === current ? 'bg-indigo-500 w-6' : 'bg-white/20'}`} />
+              <motion.button
+                key={i}
+                onClick={() => navigate(i)}
+                className={`transition-all ${
+                  i === current
+                    ? 'bg-gradient-to-r from-indigo-400 to-purple-400 shadow-lg shadow-indigo-500/50'
+                    : 'bg-white/10 hover:bg-white/20'
+                }`}
+                style={{
+                  width: i === current ? '32px' : '8px',
+                  height: '8px',
+                  borderRadius: '9999px',
+                }}
+                whileHover={{ scale: 1.2 }}
+                whileTap={{ scale: 0.9 }}
+              />
             ))}
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setCurrent((current + 1) % TIPS.length)}>
-            <ChevronRight size={20} />
-          </Button>
+
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={goNext}
+            className="p-3 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-white/10 hover:border-indigo-500/50 transition-all text-indigo-300 hover:text-indigo-200"
+          >
+            <ChevronRight size={24} />
+          </motion.button>
         </div>
       </div>
 
       {/* All tips grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {TIPS.map((tip, i) => (
-          <button key={i} onClick={() => setCurrent(i)}
-            className={`text-left p-3 rounded-xl border transition-all ${i === current
-              ? 'border-indigo-500 bg-indigo-500/10'
-              : 'border-white/5 bg-white/3 hover:bg-indigo-600/6'}`}>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-indigo-400">{tip.icon}</span>
-              <span className="font-medium text-sm">{tip.title}</span>
-            </div>
-            <p className="text-xs text-muted-foreground line-clamp-2">{tip.desc}</p>
-          </button>
-        ))}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Otros Consejos</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {TIPS.map((tip, i) => (
+            <motion.button
+              key={i}
+              onClick={() => navigate(i)}
+              whileHover={{ scale: 1.02, y: -4 }}
+              whileTap={{ scale: 0.98 }}
+              className={`relative group p-6 rounded-2xl border transition-all duration-300 text-left overflow-hidden ${
+                i === current
+                  ? 'bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-500/50 ring-1 ring-indigo-400/50 shadow-xl shadow-indigo-500/20'
+                  : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-indigo-500/30 shadow-lg hover:shadow-indigo-500/10'
+              }`}
+            >
+              {/* Decorative gradient background */}
+              <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${
+                i === current ? 'opacity-30' : ''
+              }`}>
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/5" />
+              </div>
+
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="text-4xl">{tip.icon}</div>
+                  {i === current && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="w-2 h-2 rounded-full bg-indigo-400"
+                    />
+                  )}
+                </div>
+                <h4 className="font-semibold text-sm mb-2 text-white group-hover:text-indigo-200 transition-colors">
+                  {tip.title}
+                </h4>
+                <p className="text-xs text-muted-foreground line-clamp-2 group-hover:text-gray-300 transition-colors">
+                  {tip.desc}
+                </p>
+              </div>
+            </motion.button>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -1548,9 +1907,9 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
 
         <TabsContent value="exchange">
           <Card className="glass border-white/5 p-6">
-            <h3 className="font-semibold mb-4 flex items-center gap-2"><Globe size={18} /> Tipo de Cambio Oficial</h3>
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><Globe size={18} /> Tipo de cambio al día de hoy</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Integración automática con el Ministerio de Hacienda. El tipo de cambio se actualiza diariamente.
+              Tipo de cambio al día de hoy — se actualiza automáticamente desde la fuente oficial para conversiones precisas en colones y dólares.
             </p>
             {exchangeRate ? (
               <div className="space-y-3">
@@ -1584,20 +1943,30 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
 
         <TabsContent value="about">
           <Card className="glass border-white/5 p-6">
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-4">
-                <Landmark className="text-white" size={32} />
+            <div className="text-center max-w-lg mx-auto">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-4 overflow-hidden">
+                <img src="/icon.png" alt={APP_NAME} className="w-full h-full object-cover" />
               </div>
               <h2 className="text-2xl font-bold gold-shimmer mb-2">{APP_NAME}</h2>
-              <p className="text-muted-foreground text-sm mb-4">Gestión Financiera Inteligente para Costa Rica</p>
-              <p className="text-muted-foreground text-sm mb-4">Gestión Financiera Inteligente para Costa Rica</p>
+              <p className="text-muted-foreground text-sm mb-6">Gestión Financiera Inteligente para Costa Rica</p>
               <Separator className="bg-white/5 my-4" />
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>Calculadoras financieras actualizadas — herramientas para préstamos, tarjetas y extrafinanciamientos.</p>
-                <p>Planes de lealtad Banco Popular y opciones personalizadas.</p>
-                <p>Integración del tipo de cambio oficial para conversiones precisas.</p>
-                <p>Presupuesto personal con seguimiento y exportación.</p>
-                <p className="mt-2">BudgetPulse ayuda a planear, controlar gastos, calcular financiamientos y seguir metas de ahorro con integraciones locales y consejos útiles.</p>
+              <div className="space-y-3 text-left">
+                {[
+                  { icon: <Calculator size={18} />, title: 'Calculadoras financieras', desc: 'Préstamos, tarjetas de crédito, extrafinanciamientos y salario neto con fórmulas actualizadas.' },
+                  { icon: <Landmark size={18} />, title: 'Extrafinanciamientos BP', desc: 'Simula Minicuotas, Tasa Cero, Compra de Saldos u opciones personalizadas con tasa y comisión.' },
+                  { icon: <Globe size={18} />, title: 'Tipo de cambio al día de hoy', desc: 'Conversiones automáticas entre colones y dólares con el tipo de cambio vigente.' },
+                  { icon: <Wallet size={18} />, title: 'Presupuesto personal', desc: 'Crea presupuestos, registra ingresos y gastos, y exporta en JSON o CSV.' },
+                  { icon: <Target size={18} />, title: 'Metas de ahorro', desc: 'Define objetivos, haz seguimiento del progreso y visualiza tu avance.' },
+                  { icon: <Lightbulb size={18} />, title: 'Consejos financieros', desc: 'Tips prácticos con rotación automática para mejorar tus decisiones diarias.' },
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-3 p-3 rounded-xl bg-white/3 border border-white/5">
+                    <span className="text-indigo-400 flex-shrink-0 mt-0.5">{item.icon}</span>
+                    <div>
+                      <p className="font-medium text-sm">{item.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
               <Separator className="bg-white/5 my-4" />
               <a href="https://www.linkedin.com/in/enrique-cascante" target="_blank" rel="noopener noreferrer"
@@ -1616,7 +1985,6 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
 function Sidebar() {
   const { activePage, setActivePage, sidebarCollapsed, toggleSidebar } = useAppStore()
   const { data: session } = useSession()
-  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null)
 
   const groups = NAV_ITEMS.reduce((acc, item) => {
     if (!acc[item.group]) acc[item.group] = []
@@ -1631,20 +1999,36 @@ function Sidebar() {
       className="hidden md:flex flex-col bg-[#0A0A12] border-r border-white/5 h-screen sticky top-0 overflow-hidden"
     >
       {/* Header */}
-      <div className="flex items-center gap-2 p-4 border-b border-white/5">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-          <Landmark size={16} className="text-white" />
-        </div>
-        {!sidebarCollapsed && (
-          <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="font-bold gold-shimmer text-sm whitespace-nowrap">
-            {APP_NAME}
-          </motion.span>
+      <div className={`border-b border-white/5 ${sidebarCollapsed ? 'p-2' : 'p-4'}`}>
+        {sidebarCollapsed ? (
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 ring-1 ring-white/10">
+              <img src="/icon.png" alt={APP_NAME} className="w-full h-full object-cover" />
+            </div>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Expandir menú"
+              className="sidebar-toggle-btn w-full flex justify-center py-2 rounded-lg transition-colors"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 ring-1 ring-white/10">
+              <img src="/icon.png" alt={APP_NAME} className="w-full h-full object-cover" />
+            </div>
+            <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="font-bold gold-shimmer text-sm whitespace-nowrap">
+              {APP_NAME}
+            </motion.span>
+            <button type="button" onClick={toggleSidebar}
+              className="ml-auto text-muted-foreground hover:text-indigo-300 transition-colors flex-shrink-0 p-1 rounded-md hover:bg-indigo-500/10">
+              <ChevronLeft size={16} />
+            </button>
+          </div>
         )}
-        <button onClick={toggleSidebar}
-          className="ml-auto text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
-          {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
       </div>
 
       {/* Nav */}
@@ -1710,8 +2094,8 @@ function MobileNav() {
       {/* Top bar */}
       <div className="md:hidden flex items-center justify-between p-3 bg-[#0A0A12] border-b border-white/5 sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-            <Landmark size={16} className="text-white" />
+          <div className="w-8 h-8 rounded-lg overflow-hidden ring-1 ring-white/10">
+            <img src="/icon.png" alt={APP_NAME} className="w-full h-full object-cover" />
           </div>
           <span className="font-bold gold-shimmer text-sm">{APP_NAME}</span>
         </div>
@@ -1810,7 +2194,7 @@ function MainApp() {
       case 'dashboard':
         return <DashboardPage budgets={budgets} goals={goals} exchangeRate={exchangeRate} userName={userName} />
       case 'presupuesto':
-        return <PresupuestoPage budgets={budgets} userId={userId} onRefresh={refreshData} />
+        return <PresupuestoPage budgets={budgets} userId={userId} onRefresh={refreshData} userName={userName} exchangeRate={exchangeRate} />
       case 'calculadoras':
         return <CalculatorsPage />
       case 'aguinaldo':
@@ -1831,7 +2215,7 @@ function MainApp() {
       <Sidebar />
       <div className="flex-1 flex flex-col min-h-screen">
         <MobileNav />
-        <main className="flex-1 p-4 md:p-6 lg:p-8 pb-20 md:pb-8 max-w-5xl mx-auto w-full">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 pb-20 md:pb-8 max-w-[1480px] mx-auto w-full">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <RefreshCw className="animate-spin text-muted-foreground" size={24} />

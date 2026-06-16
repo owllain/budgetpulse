@@ -141,14 +141,36 @@
 .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
 /* Card flip animation */
-.card-flip { perspective: 1000px; }
+.card-flip {
+  perspective: 1000px;
+  padding: 0.75rem 0 1rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  isolation: isolate;
+}
 .card-flip-inner {
-  transition: transform 0.6s;
+  position: relative;
+  width: 100%;
+  height: 260px;
+  min-height: 260px;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
 }
 .card-flip-inner.flipped { transform: rotateY(180deg); }
-.card-front, .card-back { backface-visibility: hidden; }
-.card-back { transform: rotateY(180deg); position: absolute; inset: 0; }
+.card-front, .card-back {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.card-back { transform: rotateY(180deg); }
+.card-front .visa-card,
+.card-back .visa-card {
+  height: 100%;
+  min-height: 0;
+}
 
 /* Gold shimmer */
 @keyframes shimmer {
@@ -169,26 +191,66 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Card flip position fix */
-.card-flip-inner {
-  position: relative;
-  width: 100%;
+/* Visa-style debit card */
+.visa-card {
+  box-shadow: 0 12px 28px -6px rgba(101, 20, 128, 0.3);
 }
-.card-front {
-  position: relative;
-  width: 100%;
-  z-index: 2;
+.visa-card .visa-logo {
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  font-size: 1.25rem;
 }
-.card-back {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
+
+/* BP simulador accents */
+.bp-switch-card {
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  transition: all 0.25s ease;
 }
-.card-flip-inner.flipped .card-front {
-  z-index: 1;
+.bp-switch-card.active {
+  border-color: var(--bp-orange);
+  background: rgba(255, 121, 0, 0.08);
 }
-.card-flip-inner.flipped .card-back {
-  z-index: 2;
+.bp-result-min {
+  border-top: 4px solid var(--bp-orange);
+}
+.bp-result-contado {
+  background: linear-gradient(135deg, var(--bp-purple) 0%, var(--bp-purple-light) 100%);
+}
+
+/* Sidebar toggle when collapsed */
+.sidebar-toggle-btn {
+  color: #a5b4fc;
+}
+.sidebar-toggle-btn:hover {
+  background: rgba(99, 102, 241, 0.15);
+  color: #c7d2fe;
+}
+
+/* Tips carousel */
+.tip-card-active {
+  background: linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(139,92,246,0.08) 100%);
+  border: 1px solid rgba(99,102,241,0.35);
+}
+.tip-grid-card {
+  transition: all 0.25s ease;
+}
+.tip-grid-card:hover {
+  border-color: rgba(99,102,241,0.3);
+  background: rgba(99,102,241,0.06);
+}
+.tip-grid-card.active {
+  border-color: rgba(99,102,241,0.5);
+  background: rgba(99,102,241,0.1);
+}
+
+/* Recharts dark tooltip override */
+.recharts-tooltip-dark {
+  background: #0F0F1A !important;
+  border: 1px solid rgba(99,102,241,0.25) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
 }
 
 /* Line clamp */

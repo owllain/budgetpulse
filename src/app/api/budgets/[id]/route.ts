@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/turso'
+import { db, hasColumn } from '@/lib/turso'
 
 // GET /api/budgets/[id]
 export async function GET(
@@ -25,10 +25,11 @@ export async function GET(
       sql: 'SELECT * FROM expense_items WHERE budget_id = ? ORDER BY sort_order',
       args: [id],
     })
+    const budgetsHasUser = await hasColumn('budgets', 'user_id')
 
     return NextResponse.json({
       id: b.id, name: b.name, period: b.period, currency: b.currency,
-      holderName: b.holder_name, userId: b.user_id,
+      holderName: b.holder_name, userId: budgetsHasUser ? b.user_id : undefined,
       createdAt: b.created_at, updatedAt: b.updated_at,
       incomes: incomes.rows.map(i => ({
         id: i.id, category: i.category, description: i.description,
@@ -69,6 +70,9 @@ export async function PUT(
     const { id } = await params
     const body = await req.json()
     const { name, period, currency, holderName, incomes, expenses } = body
+    const incomeHasUser = await hasColumn('income_items', 'user_id')
+    const expenseHasUser = await hasColumn('expense_items', 'user_id')
+    const budgetsHasUser = await hasColumn('budgets', 'user_id')
 
     // Update budget header
     await db.execute({
@@ -76,17 +80,31 @@ export async function PUT(
       args: [name, period, currency, holderName || null, id],
     })
 
+    let budgetUserId: string | undefined = undefined
+    if (budgetsHasUser && (incomeHasUser || expenseHasUser)) {
+      const budget = await db.execute({ sql: 'SELECT user_id FROM budgets WHERE id = ?', args: [id] })
+      budgetUserId = budget.rows[0]?.user_id
+    }
+
     // Replace incomes
     if (incomes !== undefined) {
       await db.execute({ sql: 'DELETE FROM income_items WHERE budget_id = ?', args: [id] })
       for (let i = 0; i < incomes.length; i++) {
         const item = incomes[i]
         const { v4: uuid } = await import('uuid')
-        await db.execute({
-          sql: `INSERT INTO income_items (id, budget_id, user_id, category, description, amount, sort_order)
-                VALUES (?, ?, (SELECT user_id FROM budgets WHERE id=?), ?, ?, ?, ?)`,
-          args: [uuid(), id, id, item.category || 'salary', item.description, item.amount || 0, i],
-        })
+        if (incomeHasUser) {
+          await db.execute({
+            sql: `INSERT INTO income_items (id, budget_id, user_id, category, description, amount, sort_order)
+                  VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            args: [uuid(), id, budgetUserId || null, item.category || 'salary', item.description, item.amount || 0, i],
+          })
+        } else {
+          await db.execute({
+            sql: `INSERT INTO income_items (id, budget_id, category, description, amount, sort_order)
+                  VALUES (?, ?, ?, ?, ?, ?)`,
+            args: [uuid(), id, item.category || 'salary', item.description, item.amount || 0, i],
+          })
+        }
       }
     }
 
@@ -96,11 +114,19 @@ export async function PUT(
       for (let i = 0; i < expenses.length; i++) {
         const item = expenses[i]
         const { v4: uuid } = await import('uuid')
-        await db.execute({
-          sql: `INSERT INTO expense_items (id, budget_id, user_id, category, description, amount, sort_order)
-                VALUES (?, ?, (SELECT user_id FROM budgets WHERE id=?), ?, ?, ?, ?)`,
-          args: [uuid(), id, id, item.category || 'other', item.description, item.amount || 0, i],
-        })
+        if (expenseHasUser) {
+          await db.execute({
+            sql: `INSERT INTO expense_items (id, budget_id, user_id, category, description, amount, sort_order)
+                  VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            args: [uuid(), id, budgetUserId || null, item.category || 'other', item.description, item.amount || 0, i],
+          })
+        } else {
+          await db.execute({
+            sql: `INSERT INTO expense_items (id, budget_id, category, description, amount, sort_order)
+                  VALUES (?, ?, ?, ?, ?, ?)`,
+            args: [uuid(), id, item.category || 'other', item.description, item.amount || 0, i],
+          })
+        }
       }
     }
 

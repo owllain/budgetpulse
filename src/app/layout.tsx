@@ -10,7 +10,7 @@ const ibmPlex = IBM_Plex_Sans({ variable: "--font-ibm-plex", weight: ["400", "50
 export const metadata: Metadata = {
   title: "BudgetPulse — Gestión Financiera Inteligente",
   description: "Aplicación moderna de gestión presupuestaria con calculadoras financieras para Costa Rica.",
-  icons: { icon: "/logo.svg" },
+  icons: { icon: "/icon.png", apple: "/icon.png" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

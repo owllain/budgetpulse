@@ -36,13 +36,6 @@ export const authOptions: NextAuthOptions = {
           console.error('NextAuth authorize error:', error)
           return null
         }
-
-        return {
-          id: user.id as string,
-          email: user.email as string,
-          name: user.name as string,
-          role: user.role as string,
-        }
       },
     }),
   ],
