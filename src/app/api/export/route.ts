@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso } from '@/lib/turso'
+import { db as turso } from '@/lib/turso'
 import { calcBudgetSummary } from '@/lib/finance'
 
 // POST /api/export - Export budget data

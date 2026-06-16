@@ -1,33 +1,31 @@
-# FinanzasCR — Worklog
-
 ---
 Task ID: 1
-Agent: Main Agent
-Task: Rename BudgetFlow → FinanzasCR + Complete rebuild with OLED Dark theme
+Agent: main
+Task: Build BudgetPulse v2 - Full app rebuild with auth, BCCR API, user-scoped data
 
 Work Log:
-- Renamed app from BudgetFlow to FinanzasCR
-- Installed sass for SCSS support
-- Created new Turso DB schema (simplified: budgets, income_items, expense_items, savings_goals)
-- Initialized local SQLite database with new schema
-- Updated turso-schema.sql for Turso deployment
-- Updated lib/turso.ts with smart fallback (local SQLite for dev, Turso for production)
-- Created lib/financial.ts with comprehensive CR financial calculations
-- Rebuilt API routes: /api/budgets, /api/budgets/[id], /api/calculators, /api/aguinaldo, /api/goals
-- Built complete single-page application with 6 navigation sections
-- Applied OLED Dark + Glassmorphism theme (bg: #060609, glass cards, gold shimmer)
-- Debit card with flip animation, dynamic gradient, masked number, holder name
-- Dashboard: Health Score, Donut Chart, Bar Chart, Summary Stats, Savings Goals
-- Presupuesto: Full CRUD with income/expense items, export (JSON/XLSX/PDF), import
-- Proyecciones: 4 calculators (CC, Loan, Financing, BP Programs)
-- Aguinaldo: 12 salary inputs + CR law info
-- Consejos: Carousel with 12 tips + category filter
-- Config: Holder name, currency, exchange rate, net salary calculator
-- Sidebar (desktop) + Bottom nav (mobile) navigation
-- Verified with Agent Browser: all sections working, no errors
+- Created v2 Turso DB schema with users, budgets, income_items, expense_items, savings_goals, exchange_rates tables
+- Seeded local SQLite DB with two users (jgonzalez96@gmail.com/Juni, tvlinelive@gmail.com/Enrique)
+- Built NextAuth credentials authentication with bcrypt password hashing
+- Built registration endpoint with password validation (uppercase, lowercase, numbers, special chars, 4-16 chars)
+- Registration sends notification email to alvaro.cascante.m@cpic.cr
+- Updated BCCR API integration from SOAP to REST API (apim.bccr.fi.cr/SDDE)
+- BCCR uses Bearer token auth, indicadores 317 (compra) and 318 (venta)
+- Built complete dark OLED + glassmorphism UI with collapsible sidebar
+- Created all pages: Dashboard, Presupuesto, Calculadoras (Loan, CC, BP, Net Salary), Aguinaldo, Metas, Consejos, Config
+- Implemented DebitCard component with flip animation and health-score-based gradient
+- Implemented Recharts charts (Expense Donut, Income vs Expense Bar)
+- Implemented Health Score gauge (0-100)
+- User-scoped data: all budgets/goals filtered by userId
+- Footer: "Hecho por @enrique-cascante on LinkedIn"
+- All API endpoints tested and working (budgets CRUD, goals CRUD, calculators, aguinaldo, exchange-rate)
+- Auth tested: password comparison verified for both users
+- Lint passes clean
 
 Stage Summary:
-- Complete rebuild of app as FinanzasCR
-- All features working and verified
-- Lint passes clean
-- No console errors
+- App renamed to BudgetPulse
+- Full auth system with login/register
+- BCCR REST API integration (requires BCCR_API_TOKEN env var)
+- Email corrected to alvaro.cascante.m@cpic.cr
+- All pages functional via SPA with sidebar navigation
+- Server runs on port 3000, returns 200

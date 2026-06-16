@@ -2,42 +2,77 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/turso'
 import { v4 as uuid } from 'uuid'
 
-export async function GET() {
+// GET /api/budgets?userId=xxx
+export async function GET(req: NextRequest) {
   try {
-    const budgets = await db.execute('SELECT * FROM budgets ORDER BY created_at DESC')
-    return NextResponse.json({ budgets: budgets.rows })
-  } catch (e) {
-    console.error('GET budgets error:', e)
-    return NextResponse.json({ error: 'Failed to fetch budgets' }, { status: 500 })
+    const userId = req.nextUrl.searchParams.get('userId')
+    if (!userId) {
+      return NextResponse.json({ error: 'userId requerido' }, { status: 400 })
+    }
+
+    const budgets = await db.execute({
+      sql: 'SELECT * FROM budgets WHERE user_id = ? ORDER BY created_at DESC',
+      args: [userId],
+    })
+
+    const result = []
+    for (const b of budgets.rows) {
+      const incomes = await db.execute({
+        sql: 'SELECT * FROM income_items WHERE budget_id = ? ORDER BY sort_order',
+        args: [b.id as string],
+      })
+      const expenses = await db.execute({
+        sql: 'SELECT * FROM expense_items WHERE budget_id = ? ORDER BY sort_order',
+        args: [b.id as string],
+      })
+      result.push({
+        id: b.id,
+        name: b.name,
+        period: b.period,
+        currency: b.currency,
+        holderName: b.holder_name,
+        userId: b.user_id,
+        createdAt: b.created_at,
+        updatedAt: b.updated_at,
+        incomes: incomes.rows.map(i => ({
+          id: i.id, category: i.category, description: i.description,
+          amount: i.amount, sortOrder: i.sort_order,
+        })),
+        expenses: expenses.rows.map(e => ({
+          id: e.id, category: e.category, description: e.description,
+          amount: e.amount, sortOrder: e.sort_order,
+        })),
+      })
+    }
+
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error('GET budgets error:', error)
+    return NextResponse.json({ error: 'Error al obtener presupuestos' }, { status: 500 })
   }
 }
 
+// POST /api/budgets — create budget
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { name, period = 'monthly', currency = 'CRC', holderName, incomes = [], expenses = [] } = body
+    const { name, period, currency, holderName, userId } = await req.json()
+    if (!name || !period || !userId) {
+      return NextResponse.json({ error: 'Nombre, periodo y usuario son requeridos' }, { status: 400 })
+    }
+
     const id = uuid()
     await db.execute({
-      sql: `INSERT INTO budgets (id, name, period, currency, holder_name) VALUES (?, ?, ?, ?, ?)`,
-      args: [id, name, period, currency, holderName || null],
+      sql: `INSERT INTO budgets (id, user_id, name, period, currency, holder_name)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [id, userId, name, period, currency || 'CRC', holderName || null],
     })
-    for (let i = 0; i < incomes.length; i++) {
-      const inc = incomes[i]
-      await db.execute({
-        sql: `INSERT INTO income_items (id, budget_id, category, description, amount, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
-        args: [uuid(), id, inc.category || 'salary', inc.description || '', inc.amount || 0, i],
-      })
-    }
-    for (let i = 0; i < expenses.length; i++) {
-      const exp = expenses[i]
-      await db.execute({
-        sql: `INSERT INTO expense_items (id, budget_id, category, sub_category, description, amount, extra_data, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [uuid(), id, exp.category || 'fixed', exp.subCategory || '', exp.description || '', exp.amount || 0, JSON.stringify(exp.extraData || {}), i],
-      })
-    }
-    return NextResponse.json({ id, message: 'Budget created' }, { status: 201 })
-  } catch (e) {
-    console.error('POST budgets error:', e)
-    return NextResponse.json({ error: 'Failed to create budget' }, { status: 500 })
+
+    return NextResponse.json({
+      id, name, period, currency: currency || 'CRC', holderName, userId,
+      incomes: [], expenses: [],
+    }, { status: 201 })
+  } catch (error) {
+    console.error('POST budgets error:', error)
+    return NextResponse.json({ error: 'Error al crear presupuesto' }, { status: 500 })
   }
 }
