@@ -14,16 +14,28 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
 
-        const result = await db.execute({
-          sql: 'SELECT id, email, name, password_hash, role FROM users WHERE email = ?',
-          args: [credentials.email],
-        })
+        try {
+          const result = await db.execute({
+            sql: 'SELECT id, email, name, password_hash, role FROM users WHERE email = ?',
+            args: [credentials.email.toLowerCase()],
+          })
 
-        const user = result.rows[0]
-        if (!user) return null
+          const user = result.rows[0]
+          if (!user) return null
 
-        const isValid = await bcrypt.compare(credentials.password, user.password_hash as string)
-        if (!isValid) return null
+          const isValid = await bcrypt.compare(credentials.password, user.password_hash as string)
+          if (!isValid) return null
+
+          return {
+            id: user.id as string,
+            email: user.email as string,
+            name: user.name as string,
+            role: user.role as string,
+          }
+        } catch (error) {
+          console.error('NextAuth authorize error:', error)
+          return null
+        }
 
         return {
           id: user.id as string,

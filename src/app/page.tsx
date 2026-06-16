@@ -42,7 +42,7 @@ const FOOTER_TEXT = 'Hecho por @enrique-cascante on LinkedIn'
 const NAV_ITEMS: { id: PageId; label: string; icon: React.ReactNode; group: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, group: 'Principal' },
   { id: 'presupuesto', label: 'Presupuesto', icon: <Wallet size={20} />, group: 'Principal' },
-  { id: 'calculadoras', label: 'Calculadoras', icon: <Calculator size={20} />, group: 'Herramientas' },
+  { id: 'calculadoras', label: 'Extrafinanciamientos', icon: <Calculator size={20} />, group: 'Herramientas' },
   { id: 'aguinaldo', label: 'Aguinaldo', icon: <Coins size={20} />, group: 'Herramientas' },
   { id: 'metas', label: 'Metas de Ahorro', icon: <Target size={20} />, group: 'Herramientas' },
   { id: 'consejos', label: 'Consejos', icon: <Lightbulb size={20} />, group: 'Aprende' },
@@ -180,7 +180,7 @@ function AuthForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#060609] p-4">
-      <div className="w-full max-w-md">
+        <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-4">
@@ -242,12 +242,6 @@ function AuthForm() {
                 {loading ? 'Procesando...' : isLogin ? 'Iniciar Sesión' : 'Solicitar Registro'}
               </Button>
             </form>
-            {isLogin && (
-              <div className="mt-4 p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                <p className="text-xs text-indigo-300 mb-1">Usuarios de prueba:</p>
-                <p className="text-xs text-muted-foreground">jgonzalez96@gmail.com / tvlinelive@gmail.com</p>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -256,8 +250,8 @@ function AuthForm() {
 }
 
 // ─── Debit Card ──────────────────────────────────────────────
-function DebitCard({ balance, holderName, currency, healthScore }: {
-  balance: number; holderName: string; currency: string; healthScore: number
+function DebitCard({ balance, holderName, currency, healthScore, exchangeRate }: {
+  balance: number; holderName: string; currency: string; healthScore: number; exchangeRate?: { buy: number; sell: number } | null
 }) {
   const [flipped, setFlipped] = useState(false)
   const [showBalance, setShowBalance] = useState(true)
@@ -267,12 +261,25 @@ function DebitCard({ balance, holderName, currency, healthScore }: {
   const maskedNumber = '•••• •••• •••• 4829'
   const cvv = '•••'
 
+  // conversion
+  let convertedLabel = ''
+  let convertedAmount = 0
+  if (exchangeRate) {
+    if (currency === 'CRC') {
+      convertedAmount = exchangeRate.sell > 0 ? balance / exchangeRate.sell : 0
+      convertedLabel = 'USD'
+    } else {
+      convertedAmount = exchangeRate.buy > 0 ? balance * exchangeRate.buy : 0
+      convertedLabel = 'CRC'
+    }
+  }
+
   return (
     <div className="card-flip w-full max-w-sm mx-auto" onClick={() => setFlipped(!flipped)}>
       <div className={`card-flip-inner ${flipped ? 'flipped' : ''}`}>
         {/* Front */}
-        <div className={`debit-card ${healthClass} rounded-2xl p-6 text-white cursor-pointer relative`} style={{ minHeight: 200 }}>
-          <div className="flex justify-between items-start mb-6">
+        <div className={`card-front debit-card ${healthClass} rounded-2xl p-6 text-white cursor-pointer relative`} style={{ minHeight: 200 }}>
+          <div className="flex justify-between items-start mb-6 border-white/10 bg-white/5 hover:bg-indigo-600/6">
             <div className="flex items-center gap-2">
               <Landmark size={20} className="opacity-80" />
               <span className="text-xs font-medium opacity-80">{APP_NAME}</span>
@@ -310,7 +317,7 @@ function DebitCard({ balance, holderName, currency, healthScore }: {
         </div>
 
         {/* Back */}
-        <div className="debit-card rounded-2xl p-6 text-white cursor-pointer" style={{ minHeight: 200 }}>
+        <div className="card-back debit-card rounded-2xl p-6 text-white cursor-pointer" style={{ minHeight: 200 }}>
           <div className="w-full h-10 bg-black/60 rounded mt-2 mb-4" />
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 bg-white/20 rounded px-4 py-2">
@@ -321,6 +328,9 @@ function DebitCard({ balance, holderName, currency, healthScore }: {
           <div className="space-y-2 text-xs opacity-60">
             <p>Salud Financiera: <span className="font-bold text-white">{healthScore}/100</span></p>
             <p>{APP_NAME} — Tarjeta de Presupuesto Virtual</p>
+            {exchangeRate && (
+              <p className="text-xs mt-2">Equivalente: <span className="font-bold">{new Intl.NumberFormat('en-US', { style: 'currency', currency: convertedLabel }).format(convertedAmount)}</span></p>
+            )}
           </div>
           <div className="mt-4 flex justify-end">
             <div className="w-16 h-10 rounded bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center">
@@ -343,7 +353,7 @@ function HealthScoreGauge({ score }: { score: number }) {
 
   return (
     <Card className="glass border-white/5 p-4">
-      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4">
         <div className="relative w-24 h-24 flex-shrink-0">
           <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
@@ -377,7 +387,7 @@ function ExpenseDonut({ expenses }: { expenses: { category: string; amount: numb
   if (data.length === 0) {
     return (
       <Card className="glass border-white/5 p-4">
-        <h3 className="font-semibold text-sm mb-4">Distribución de Gastos</h3>
+          <h3 className="font-semibold text-sm mb-4">Distribución de Gastos</h3>
         <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
           Sin datos de gastos
         </div>
@@ -441,7 +451,7 @@ function DashboardPage({ budgets, goals, exchangeRate, userName }: {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">¡Hola, {userName}!</h1>
           <p className="text-muted-foreground text-sm">Aquí está tu resumen financiero</p>
@@ -449,7 +459,7 @@ function DashboardPage({ budgets, goals, exchangeRate, userName }: {
         {exchangeRate && (
           <div className="glass rounded-lg px-3 py-2 text-xs">
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Globe size={12} /> BCCR
+              <Globe size={12} /> Tipo de cambio al día de hoy
             </div>
             <div className="flex gap-3 mt-0.5">
               <span className="text-green-400">Compra: {formatCRC(exchangeRate.buy, 'USD')}</span>
@@ -460,7 +470,7 @@ function DashboardPage({ budgets, goals, exchangeRate, userName }: {
       </div>
 
       {/* Debit Card */}
-      <DebitCard balance={available} holderName={userName} currency={currency} healthScore={healthScore} />
+      <DebitCard balance={available} holderName={userName} currency={currency} healthScore={healthScore} exchangeRate={exchangeRate} />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -530,14 +540,17 @@ function PresupuestoPage({ budgets, userId, onRefresh }: {
   const available = totalIncome - totalExpenses
 
   const createBudget = async () => {
-    if (!budgetName) return
+    if (!budgetName) { toast.error('Nombre requerido'); return }
+    if (!userId) { toast.error('Usuario no identificado'); return }
     setSaving(true)
     try {
       const res = await fetch('/api/budgets', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: budgetName, period: budgetPeriod, currency: budgetCurrency, userId }),
       })
+      const data = await res.json()
       if (res.ok) { toast.success('Presupuesto creado'); setShowNewBudget(false); onRefresh() }
+      else { toast.error(data?.error || 'Error creando presupuesto') }
     } catch { toast.error('Error al crear') }
     finally { setSaving(false) }
   }
@@ -702,7 +715,7 @@ function PresupuestoPage({ budgets, userId, onRefresh }: {
               </h3>
               <div className="space-y-2 mb-4 max-h-64 overflow-y-auto custom-scroll">
                 {activeBudget.incomes.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/3 hover:bg-white/5 group">
+                  <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/3 hover:bg-indigo-600/6 group">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm truncate">{item.description}</p>
                       <p className="text-xs text-muted-foreground">{INCOME_CATEGORIES.find(c => c.value === item.category)?.label}</p>
@@ -746,7 +759,7 @@ function PresupuestoPage({ budgets, userId, onRefresh }: {
               </h3>
               <div className="space-y-2 mb-4 max-h-64 overflow-y-auto custom-scroll">
                 {activeBudget.expenses.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/3 hover:bg-white/5 group">
+                  <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/3 hover:bg-indigo-600/6 group">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm truncate">{item.description}</p>
                       <p className="text-xs text-muted-foreground">{EXPENSE_CATEGORIES.find(c => c.value === item.category)?.label}</p>
@@ -840,7 +853,7 @@ function CalculatorsPage() {
         <TabsList className="bg-white/5 border border-white/10 w-full flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="loan" className="text-xs data-[state=active]:bg-indigo-600">Préstamo</TabsTrigger>
           <TabsTrigger value="cc" className="text-xs data-[state=active]:bg-indigo-600">Tarjeta Crédito</TabsTrigger>
-          <TabsTrigger value="bp" className="text-xs data-[state=active]:bg-indigo-600">BP Lealtad</TabsTrigger>
+          <TabsTrigger value="bp" className="text-xs data-[state=active]:bg-indigo-600">Extrafinanciamientos</TabsTrigger>
           <TabsTrigger value="netSalary" className="text-xs data-[state=active]:bg-indigo-600">Salario Neto</TabsTrigger>
         </TabsList>
 
@@ -1010,12 +1023,24 @@ function CreditCardCalc() {
 }
 
 function BPLoyaltyCalc() {
-  const [program, setProgram] = useState<'minicuotas' | 'tasaCero' | 'compraSaldos'>('minicuotas')
+  const [program, setProgram] = useState<'minicuotas' | 'tasaCero' | 'compraSaldos' | 'otros'>('minicuotas')
   const [amount, setAmount] = useState(500000)
   const [currency, setCurrency] = useState<'CRC' | 'USD'>('CRC')
+  const [manualRate, setManualRate] = useState<number | null>(null)
+  const [manualCommission, setManualCommission] = useState<number | null>(null)
   const [result, setResult] = useState<any>(null)
 
   const calculate = async () => {
+    if (program === 'otros') {
+      // local calculation: simple amortization using manualRate and manualCommission
+      const rate = (manualRate || 0) / 100
+      const commission = manualCommission ? (amount * (manualCommission / 100)) : 0
+      const monthlyRate = rate / 12
+      const terms = [12, 24, 36]
+      const payments = terms.map(t => ({ term: t, payment: calcPMT(amount + commission, rate, t) }))
+      setResult({ program: 'Otros', amount, currency, commission, payments })
+      return
+    }
     const typeMap = { minicuotas: 'bpMinicuotas', tasaCero: 'bpTasaCero', compraSaldos: 'bpCompraSaldos' }
     const res = await fetch('/api/calculators', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1028,6 +1053,7 @@ function BPLoyaltyCalc() {
     { id: 'minicuotas' as const, name: 'Mini Cuotas', desc: 'Tasa 24% CRC / 20% USD', icon: <Percent size={18} /> },
     { id: 'tasaCero' as const, name: 'Tasa Cero', desc: '0% + comisión 3%', icon: <Star size={18} /> },
     { id: 'compraSaldos' as const, name: 'Compra de Saldos', desc: 'Tasa 21% CRC / 18% USD', icon: <Scale size={18} /> },
+    { id: 'otros' as const, name: 'Otros', desc: 'Tasa/Comisión Personalizada', icon: <Gem size={18} /> },
   ]
 
   return (
@@ -1040,7 +1066,7 @@ function BPLoyaltyCalc() {
           <button key={p.id} onClick={() => { setProgram(p.id); setResult(null) }}
             className={`p-3 rounded-xl border text-left transition-all ${program === p.id
               ? 'border-purple-500 bg-purple-500/10'
-              : 'border-white/5 bg-white/3 hover:bg-white/5'}`}>
+              : 'border-white/5 bg-white/3 hover:bg-indigo-600/6'`}>
             <div className="flex items-center gap-2 mb-1 text-purple-400">{p.icon} <span className="font-medium text-sm">{p.name}</span></div>
             <p className="text-xs text-muted-foreground">{p.desc}</p>
           </button>
@@ -1065,6 +1091,20 @@ function BPLoyaltyCalc() {
             <Input type="number" value={amount} onChange={e => setAmount(parseFloat(e.target.value) || 0)}
               className="bg-white/5 border-white/10" />
           </div>
+          {program === 'otros' && (
+            <>
+              <div className="space-y-2">
+                <Label>Tasa Anual (%)</Label>
+                <Input type="number" value={manualRate ?? ''} onChange={e => setManualRate(e.target.value === '' ? null : parseFloat(e.target.value))} step={0.01}
+                  className="bg-white/5 border-white/10" />
+              </div>
+              <div className="space-y-2">
+                <Label>Comisión (%)</Label>
+                <Input type="number" value={manualCommission ?? ''} onChange={e => setManualCommission(e.target.value === '' ? null : parseFloat(e.target.value))} step={0.01}
+                  className="bg-white/5 border-white/10" />
+              </div>
+            </>
+          )}
           {program === 'tasaCero' && (
             <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-300">
               <AlertTriangle size={14} className="inline mr-1" />
@@ -1247,15 +1287,24 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
 
   const createGoal = async () => {
-    if (!newGoal.name || newGoal.targetAmount <= 0) return
-    await fetch('/api/goals', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...newGoal, userId }),
-    })
-    setShowNew(false)
-    setNewGoal({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', currency: 'CRC' })
-    onRefresh()
-    toast.success('Meta creada')
+    if (!newGoal.name) { toast.error('Nombre de meta requerido'); return }
+    if (newGoal.targetAmount <= 0) { toast.error('Monto objetivo debe ser mayor a 0'); return }
+    if (!userId) { toast.error('Usuario no identificado'); return }
+    try {
+      const res = await fetch('/api/goals', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newGoal, userId }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setShowNew(false)
+        setNewGoal({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', currency: 'CRC' })
+        onRefresh()
+        toast.success('Meta creada')
+      } else {
+        toast.error(data?.error || 'Error creando meta')
+      }
+    } catch (e) { toast.error('Error al crear meta') }
   }
 
   const updateGoal = async () => {
@@ -1270,7 +1319,7 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
   }
 
   const deleteGoal = async (id: string) => {
-    await fetch(`/api/goals?id=${id}`, { method: 'DELETE' })
+    await fetch('/api/goals?id=' + encodeURIComponent(id), { method: 'DELETE' })
     onRefresh()
     toast.success('Meta eliminada')
   }
@@ -1395,6 +1444,10 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
 // ─── Tips Carousel Page ──────────────────────────────────────
 function TipsCarouselPage() {
   const [current, setCurrent] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setCurrent(c => (c + 1) % TIPS.length), 4500)
+    return () => clearInterval(id)
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -1444,7 +1497,7 @@ function TipsCarouselPage() {
           <button key={i} onClick={() => setCurrent(i)}
             className={`text-left p-3 rounded-xl border transition-all ${i === current
               ? 'border-indigo-500 bg-indigo-500/10'
-              : 'border-white/5 bg-white/3 hover:bg-white/5'}`}>
+              : 'border-white/5 bg-white/3 hover:bg-indigo-600/6'}`}>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-indigo-400">{tip.icon}</span>
               <span className="font-medium text-sm">{tip.title}</span>
@@ -1495,9 +1548,9 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
 
         <TabsContent value="exchange">
           <Card className="glass border-white/5 p-6">
-            <h3 className="font-semibold mb-4 flex items-center gap-2"><Globe size={18} /> Tipo de Cambio BCCR</h3>
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><Globe size={18} /> Tipo de Cambio Oficial</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Integración automática con el Banco Central de Costa Rica. El tipo de cambio se actualiza diariamente.
+              Integración automática con el Ministerio de Hacienda. El tipo de cambio se actualiza diariamente.
             </p>
             {exchangeRate ? (
               <div className="space-y-3">
@@ -1537,12 +1590,14 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
               </div>
               <h2 className="text-2xl font-bold gold-shimmer mb-2">{APP_NAME}</h2>
               <p className="text-muted-foreground text-sm mb-4">Gestión Financiera Inteligente para Costa Rica</p>
+              <p className="text-muted-foreground text-sm mb-4">Gestión Financiera Inteligente para Costa Rica</p>
               <Separator className="bg-white/5 my-4" />
               <div className="space-y-2 text-sm text-muted-foreground">
-                <p>Calculadoras financieras actualizadas</p>
-                <p>Planes de lealtad Banco Popular</p>
-                <p>Integración BCCR tipo de cambio</p>
-                <p>Presupuesto personal con seguimiento</p>
+                <p>Calculadoras financieras actualizadas — herramientas para préstamos, tarjetas y extrafinanciamientos.</p>
+                <p>Planes de lealtad Banco Popular y opciones personalizadas.</p>
+                <p>Integración del tipo de cambio oficial para conversiones precisas.</p>
+                <p>Presupuesto personal con seguimiento y exportación.</p>
+                <p className="mt-2">BudgetPulse ayuda a planear, controlar gastos, calcular financiamientos y seguir metas de ahorro con integraciones locales y consejos útiles.</p>
               </div>
               <Separator className="bg-white/5 my-4" />
               <a href="https://www.linkedin.com/in/enrique-cascante" target="_blank" rel="noopener noreferrer"
@@ -1608,7 +1663,7 @@ function Sidebar() {
                       className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-all ${
                         activePage === item.id
                           ? 'bg-indigo-500/15 text-indigo-400 border-r-2 border-indigo-500'
-                          : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+                          : 'text-muted-foreground hover:bg-indigo-600/10 hover:text-foreground'
                       } ${sidebarCollapsed ? 'justify-center px-0' : ''}`}
                     >
                       {item.icon}
@@ -1681,7 +1736,7 @@ function MobileNav() {
                   className={`w-full flex items-center gap-3 p-3 rounded-xl text-sm transition-all ${
                     activePage === item.id
                       ? 'bg-indigo-500/15 text-indigo-400'
-                      : 'text-muted-foreground hover:bg-white/5'
+                      : 'text-muted-foreground hover:bg-indigo-600/10'
                   }`}>
                   {item.icon} {item.label}
                 </button>

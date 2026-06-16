@@ -1,27 +1,28 @@
-// Seed script to create initial users in Turso
+// Seed script to create the demo user in Turso
 // Run with: bun run seed-users.js
 
 const bcrypt = require('bcryptjs');
 const { createClient } = require('@libsql/client');
 
+const tursoUrl = process.env.TURSO_DATABASE_URL || 'file:./db/local.db'
+const tursoAuthToken = process.env.TURSO_AUTH_TOKEN || undefined
+
+if (tursoUrl.startsWith('libsql://') && !tursoAuthToken) {
+  throw new Error('TURSO_AUTH_TOKEN is required to seed a remote Turso database.')
+}
+
 const turso = createClient({
-  url: process.env.TURSO_DATABASE_URL || 'file:./db/local.db',
-  authToken: process.env.TURSO_AUTH_TOKEN || undefined,
+  url: tursoUrl,
+  authToken: tursoAuthToken,
 });
 
 async function seed() {
   const users = [
     {
-      id: 'user-juni-001',
-      email: 'jgonzalez96@gmail.com',
-      name: 'Juni',
-      password: 'Melo', // Will be hashed
-    },
-    {
       id: 'user-enrique-001',
       email: 'tvlinelive@gmail.com',
       name: 'Enrique',
-      password: 'Mochi', // Will be hashed
+      password: 'Melo', // Will be hashed
     },
   ];
 

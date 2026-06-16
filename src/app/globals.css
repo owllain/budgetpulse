@@ -47,6 +47,9 @@
 
 :root {
   --radius: 0.75rem;
+  --bp-purple: #651480;
+  --bp-purple-light: #8b2eab;
+  --bp-orange: #FF7900;
   /* FinanzasCR OLED Dark Theme */
   --background: #060609;
   --foreground: #E2E8F0;
@@ -105,10 +108,9 @@
   border: 1px solid rgba(255,255,255,0.1);
 }
 
-/* Debit Card Styles */
 .debit-card {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: linear-gradient(135deg, var(--bp-purple) 0%, var(--bp-purple-light) 50%, #0f3460 100%);
+  border: 1px solid rgba(255,255,255,0.08);
   position: relative;
   overflow: hidden;
 }
