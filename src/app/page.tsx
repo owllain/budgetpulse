@@ -766,7 +766,7 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
 
       {/* New Budget Dialog */}
       <Dialog open={showNewBudget} onOpenChange={setShowNewBudget}>
-        <DialogContent className="glass-strong border-white/10">
+        <DialogContent className="bg-slate-950/95 border-white/15 shadow-2xl backdrop-blur-xl">
           <DialogHeader><DialogTitle>Nuevo Presupuesto</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -1614,7 +1614,7 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
       </div>
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
-        <DialogContent className="glass-strong border-white/10">
+        <DialogContent className="bg-slate-950/95 border-white/15 shadow-2xl backdrop-blur-xl">
           <DialogHeader><DialogTitle>Nueva Meta de Ahorro</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <Input placeholder="Nombre de la meta" value={newGoal.name}
@@ -1660,7 +1660,7 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
       </Dialog>
 
       <Dialog open={!!editingGoal} onOpenChange={() => setEditingGoal(null)}>
-        <DialogContent className="glass-strong border-white/10">
+        <DialogContent className="bg-slate-950/95 border-white/15 shadow-2xl backdrop-blur-xl">
           <DialogHeader><DialogTitle>Editar Meta</DialogTitle></DialogHeader>
           {editingGoal && (
             <div className="space-y-4">
