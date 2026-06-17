@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/turso'
+import { auditCreate } from '@/lib/audit'
 import { v4 as uuid } from 'uuid'
 
 // GET /api/budgets?userId=xxx
@@ -61,10 +62,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nombre, periodo y usuario son requeridos' }, { status: 400 })
     }
 
-    const id = uuid()
-    await db.execute({
-      sql: `INSERT INTO budgets (id, user_id, name, period, currency, holder_name) VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [id, userId, name, period, currency || 'CRC', holderName || null],
+    const id = await auditCreate({
+      userId,
+      entity: 'Budget',
+      newValues: { name, period, currency: currency || 'CRC', holderName },
+      ipAddress: req.headers.get('x-forwarded-for') || null,
+      fn: async () => {
+        const newId = uuid()
+        await db.execute({
+          sql: `INSERT INTO budgets (id, user_id, name, period, currency, holder_name) VALUES (?, ?, ?, ?, ?, ?)`,
+          args: [newId, userId, name, period, currency || 'CRC', holderName || null],
+        })
+        return newId
+      }
     })
 
     return NextResponse.json({

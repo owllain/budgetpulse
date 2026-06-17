@@ -179,16 +179,16 @@ export function CreditsPage({ credits, userId, onRefresh }: {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Créditos y Préstamos</h1>
-        <Button onClick={() => setShowNew(true)} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
-          <Plus size={16} className="mr-1" /> Nuevo Crédito
+        <Button onClick={() => setShowNew(true)} size="sm" className="bg-indigo-600 hover:bg-indigo-700" aria-label="Nuevo crédito">
+          <Plus size={16} className="mr-1" aria-hidden="true" /> Nuevo Crédito
         </Button>
       </div>
 
       {credits.length === 0 ? (
-        <Card className="glass border-white/5 p-8 text-center">
-          <CreditCardIcon size={40} className="mx-auto mb-4 text-muted-foreground" />
+          <Card className="glass border-white/5 p-8 text-center">
+          <CreditCardIcon size={40} className="mx-auto mb-4 text-muted-foreground" aria-hidden="true" />
           <h2 className="text-lg font-semibold mb-2">Sin créditos registrados</h2>
           <p className="text-muted-foreground text-sm">Crea tu primer crédito para realizar un seguimiento</p>
         </Card>
@@ -292,15 +292,15 @@ export function CreditsPage({ credits, userId, onRefresh }: {
                           ) : (
                             <Button size="sm" className="w-full bg-green-600 hover:bg-green-700"
                               onClick={() => { setPaymentGoalId(credit.id); setPaymentAmount('') }}>
-                              <ArrowRight size={14} className="mr-1" /> Registrar Pago
+                            <ArrowRight size={14} className="mr-1" aria-hidden="true" /> Registrar Pago
                             </Button>
                           )}
                           <div className="flex gap-2">
                             <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditingCredit(credit)}>
-                              <Settings size={14} className="mr-1" /> Editar
+                              <Settings size={14} className="mr-1" aria-hidden="true" /> Editar
                             </Button>
                             <Button variant="outline" size="sm" className="flex-1 text-red-400 border-red-500/30" onClick={() => deleteCredit(credit.id)}>
-                              <Trash2 size={14} className="mr-1" /> Eliminar
+                              <Trash2 size={14} className="mr-1" aria-hidden="true" /> Eliminar
                             </Button>
                           </div>
                         </div>
@@ -344,8 +344,8 @@ export function CreditsPage({ credits, userId, onRefresh }: {
                           <p className="text-xs text-muted-foreground">{credit.financial_entity}</p>
                         </div>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => setEditingCredit(credit)}><Settings size={14} /></Button>
-                          <Button variant="ghost" size="sm" onClick={() => deleteCredit(credit.id)} className="text-red-400"><Trash2 size={14} /></Button>
+                          <Button variant="ghost" size="sm" onClick={() => setEditingCredit(credit)} aria-label={`Editar crédito ${credit.name}`}><Settings size={14} aria-hidden="true" /></Button>
+                          <Button variant="ghost" size="sm" onClick={() => deleteCredit(credit.id)} className="text-red-400" aria-label={`Eliminar crédito ${credit.name}`}><Trash2 size={14} aria-hidden="true" /></Button>
                         </div>
                       </div>
                       <div className="space-y-3">
@@ -397,7 +397,7 @@ export function CreditsPage({ credits, userId, onRefresh }: {
                               Confirmar
                             </Button>
                             <Button size="sm" variant="outline"
-                              onClick={() => { setPaymentGoalId(null); setPaymentAmount('') }}>
+                              onClick={() => { setPaymentGoalId(null); setPaymentAmount('') }} aria-label="Cancelar pago">
                               X
                             </Button>
                           </div>

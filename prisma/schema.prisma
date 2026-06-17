@@ -30,3 +30,44 @@ model Post {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  EXPORT
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    AuditAction
+  entity    String
+  entityId  String
+  oldValues Json?
+  newValues Json?
+  ipAddress String?
+  userAgent String?
+  changes   Json?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+  @@index([userId])
+  @@index([entity, entityId])
+}
+
+model DebtStrategy {
+  id           String   @id @default(cuid())
+  userId       String
+  strategyId   String
+  strategyType String
+  fileName     String
+  debtCount    Int?
+  presupuestoExtra Int?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@map("debt_strategies")
+  @@index([userId])
+}

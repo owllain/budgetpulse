@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession, signIn, signOut } from 'next-auth/react'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAppStore, type PageId } from '@/stores/app-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -33,8 +33,54 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
+import { LineChart, Line } from 'recharts'
+import IncomePredictor from '@/components/predictor/IncomePredictor'
 import { toast } from 'sonner'
 import { CreditsPage } from '@/components/CreditsPage'
+import AuditPage from '@/components/audit/AuditPage'
+
+function DateInputField({
+  value,
+  onChange,
+  label,
+}: {
+  value: string
+  onChange: (value: string) => void
+  label: string
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  const openPicker = () => {
+    inputRef.current?.focus()
+    if (typeof inputRef.current?.showPicker === 'function') {
+      inputRef.current.showPicker()
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="relative">
+        <Input
+          ref={inputRef}
+          type="date"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="bg-white/5 border-white/10 pr-11 date-input"
+        />
+        <button
+          type="button"
+          onClick={openPicker}
+          className="absolute inset-y-0 right-0 flex items-center justify-center px-3 text-white bg-white/10 border-l border-white/10 rounded-r-md opacity-80 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring"
+          aria-label={`Abrir calendario de ${label}`}
+        >
+          <Calendar size={16} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  )
+}
+import { DebtOptimizerExample } from '@/components/examples/debt-optimizer-example'
 
 // ─── Constants ───────────────────────────────────────────────
 const APP_NAME = 'BudgetPulse'
@@ -47,8 +93,10 @@ const NAV_ITEMS: { id: PageId; label: string; icon: React.ReactNode; group: stri
   { id: 'calculadoras', label: 'Calculadora Financiera', icon: <Calculator size={20} />, group: 'Herramientas' },
   { id: 'aguinaldo', label: 'Aguinaldo', icon: <Coins size={20} />, group: 'Herramientas' },
   { id: 'metas', label: 'Metas de Ahorro', icon: <Target size={20} />, group: 'Herramientas' },
+  { id: 'debt_optimizer', label: 'Optimizador de Deuda', icon: <Scale size={20} />, group: 'Herramientas' },
   { id: 'consejos', label: 'Consejos', icon: <Lightbulb size={20} />, group: 'Aprende' },
   { id: 'config', label: 'Configuración', icon: <Settings size={20} />, group: 'Sistema' },
+  { id: 'audit', label: 'Auditoría de cambios', icon: <BookOpen size={20} />, group: 'Sistema' },
 ]
 
 const CHART_COLORS = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
@@ -61,7 +109,7 @@ const TIPS = [
   { title: 'Automatiza tu Ahorro', desc: 'Configura transferencias automáticas el día de pago. Si no lo ves, no lo gastas. La automatización es la clave.', icon: <Zap size={24} /> },
   { title: 'Revisa tus Suscripciones', desc: 'Audita mensualmente tus suscripciones activas. Muchas veces pagamos por servicios que ya no usamos.', icon: <Search size={24} /> },
   { title: 'Costo de Oportunidad', desc: 'Antes de comprar, piensa: ¿este dinero rendiría más invertido? Cada colón gastado es un colón que no genera intereses.', icon: <TrendingUp size={24} /> },
-  { title: 'Diversifica Ingresos', desc: 'No dependas de una sola fuente de ingresos. Un side project o inversión pasiva puede marcar la diferencia.', icon: <DollarSign size={24} /> },
+  { title: 'Diversifica Entradas', desc: 'No dependas de una sola fuente de entradas. Un side project o inversión pasiva puede marcar la diferencia.', icon: <DollarSign size={24} /> },
 ]
 
 const INCOME_CATEGORIES = [
@@ -256,7 +304,7 @@ function AuthForm() {
               <div className="space-y-2">
                 <Label>Correo electrónico</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />
                   <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="correo@ejemplo.com"
                     type="email" className="pl-10 bg-white/5 border-white/10" required />
                 </div>
@@ -264,13 +312,14 @@ function AuthForm() {
               <div className="space-y-2">
                 <Label>Contraseña</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} aria-hidden="true" />
                   <Input value={password} onChange={e => setPassword(e.target.value)}
                     type={showPw ? 'text' : 'password'} placeholder="••••••"
                     className="pl-10 pr-10 bg-white/5 border-white/10" required />
                   <button type="button" onClick={() => setShowPw(!showPw)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
+                    {showPw ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
                   </button>
                 </div>
                 {!isLogin && (
@@ -368,7 +417,7 @@ function DebitCard({ balance, holderName, currency, healthScore, exchangeRate }:
           onClick={(e) => { e.stopPropagation(); setShowBalance(!showBalance) }}
           className="text-xs text-muted-foreground hover:text-indigo-400 transition-colors flex items-center gap-1"
         >
-          {showBalance ? <Eye size={12} /> : <EyeOff size={12} />}
+          {showBalance ? <Eye size={12} aria-hidden="true" /> : <EyeOff size={12} aria-hidden="true" />}
           {showBalance ? 'Ocultar saldo' : 'Mostrar saldo'}
         </button>
         {exchangeRate && (
@@ -422,9 +471,9 @@ function ExpenseDonut({ expenses }: { expenses: { category: string; amount: numb
   if (data.length === 0) {
     return (
       <Card className="glass border-white/5 p-4">
-          <h3 className="font-semibold text-sm mb-4">Distribución de Gastos</h3>
+          <h3 className="font-semibold text-sm mb-4">Distribución de Salidas</h3>
         <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-          Sin datos de gastos
+          Sin datos de salidas
         </div>
       </Card>
     )
@@ -432,7 +481,7 @@ function ExpenseDonut({ expenses }: { expenses: { category: string; amount: numb
 
   return (
     <Card className="glass border-white/5 p-4">
-      <h3 className="font-semibold text-sm mb-4">Distribución de Gastos</h3>
+      <h3 className="font-semibold text-sm mb-4">Distribución de Salidas</h3>
       <ResponsiveContainer width="100%" height={200}>
         <RechartsPie>
           <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" stroke="none">
@@ -446,13 +495,38 @@ function ExpenseDonut({ expenses }: { expenses: { category: string; amount: numb
   )
 }
 
-// ─── Income vs Expense Bar Chart ─────────────────────────────
-function IncomeExpenseBar({ totalIncome, totalExpenses }: { totalIncome: number; totalExpenses: number }) {
-  const data = [{ name: 'Resumen', Ingresos: totalIncome, Gastos: totalExpenses }]
+// Proyección simple de saldo acumulado mes a mes
+function ProjectionChart({ monthlyNet }: { monthlyNet: number }) {
+  const months = Array.from({ length: 12 }, (_, i) => i + 1)
+  let balance = 0
+  const data = months.map(m => {
+    balance += monthlyNet
+    return { month: `M${m}`, balance }
+  })
 
   return (
     <Card className="glass border-white/5 p-4">
-      <h3 className="font-semibold text-sm mb-4">Ingresos vs Gastos</h3>
+      <h3 className="font-semibold text-sm mb-4">Proyección 12 meses</h3>
+      <ResponsiveContainer width="100%" height={180}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+          <XAxis dataKey="month" stroke="rgba(255,255,255,0.25)" />
+          <YAxis tickFormatter={(v) => formatCompact(v)} stroke="rgba(255,255,255,0.25)" />
+          <RechartsTooltip formatter={(v: number) => formatCRC(v)} />
+          <Line type="monotone" dataKey="balance" stroke="#6366F1" strokeWidth={2} dot={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </Card>
+  )
+}
+
+// ─── Income vs Expense Bar Chart ─────────────────────────────
+function IncomeExpenseBar({ totalIncome, totalExpenses }: { totalIncome: number; totalExpenses: number }) {
+  const data = [{ name: 'Resumen', Entradas: totalIncome, Salidas: totalExpenses }]
+
+  return (
+    <Card className="glass border-white/5 p-4">
+      <h3 className="font-semibold text-sm mb-4">Entradas vs Salidas</h3>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={data} layout="vertical">
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -465,8 +539,8 @@ function IncomeExpenseBar({ totalIncome, totalExpenses }: { totalIncome: number;
             itemStyle={{ color: '#E2E8F0' }}
             cursor={{ fill: 'rgba(99,102,241,0.08)' }}
           />
-          <Bar dataKey="Ingresos" fill="#10B981" radius={[0, 4, 4, 0]} activeBar={{ fill: '#34D399' }} />
-          <Bar dataKey="Gastos" fill="#EF4444" radius={[0, 4, 4, 0]} activeBar={{ fill: '#F87171' }} />
+          <Bar dataKey="Entradas" fill="#10B981" radius={[0, 4, 4, 0]} activeBar={{ fill: '#34D399' }} />
+          <Bar dataKey="Salidas" fill="#EF4444" radius={[0, 4, 4, 0]} activeBar={{ fill: '#F87171' }} />
         </BarChart>
       </ResponsiveContainer>
     </Card>
@@ -501,7 +575,7 @@ function DashboardPage({ budgets, goals, exchangeRate, userName }: {
           {exchangeRate && (
             <div className="glass rounded-lg px-3 py-2 text-xs">
               <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Globe size={12} /> Tipo de cambio al día de hoy
+                <Globe size={12} aria-hidden="true" /> Tipo de cambio al día de hoy
               </div>
               <div className="flex gap-3 mt-0.5">
                 <span className="text-green-400">Compra: {formatCRC(exchangeRate.buy, 'USD')}</span>
@@ -512,7 +586,7 @@ function DashboardPage({ budgets, goals, exchangeRate, userName }: {
         </div>
         <Card className="glass border-white/5 p-6 text-center">
           <h2 className="text-lg font-semibold mb-2">No hay presupuestos</h2>
-          <p className="text-sm text-muted-foreground mb-4">Crea un presupuesto en la pestaña de Presupuesto para comenzar a registrar ingresos y gastos.</p>
+          <p className="text-sm text-muted-foreground mb-4">Crea un presupuesto en la pestaña de Presupuesto para comenzar a registrar entradas y salidas.</p>
         </Card>
       </div>
     )
@@ -528,7 +602,7 @@ function DashboardPage({ budgets, goals, exchangeRate, userName }: {
         {exchangeRate && (
           <div className="glass rounded-lg px-3 py-2 text-xs shrink-0">
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Globe size={12} /> Tipo de cambio al día de hoy
+              <Globe size={12} aria-hidden="true" /> Tipo de cambio al día de hoy
             </div>
             <div className="flex gap-3 mt-0.5">
               <span className="text-green-400">Compra: {formatCRC(exchangeRate.buy, 'USD')}</span>
@@ -546,8 +620,8 @@ function DashboardPage({ budgets, goals, exchangeRate, userName }: {
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              { label: 'Ingresos', value: totalIncome, icon: <TrendingUp size={18} />, color: 'text-green-400' },
-              { label: 'Gastos', value: totalExpenses, icon: <TrendingDown size={18} />, color: 'text-red-400' },
+              { label: 'Entradas', value: totalIncome, icon: <TrendingUp size={18} />, color: 'text-green-400' },
+              { label: 'Salidas', value: totalExpenses, icon: <TrendingDown size={18} />, color: 'text-red-400' },
               { label: 'Disponible', value: available, icon: <Wallet size={18} />, color: available >= 0 ? 'text-emerald-400' : 'text-red-400' },
               { label: 'Deuda TC', value: totalCredit, icon: <CreditCard size={18} />, color: 'text-orange-400' },
             ].map((stat, i) => (
@@ -565,6 +639,8 @@ function DashboardPage({ budgets, goals, exchangeRate, userName }: {
         <div className="grid gap-4">
           <HealthScoreGauge score={healthScore} />
           <IncomeExpenseBar totalIncome={totalIncome} totalExpenses={totalExpenses} />
+          <ProjectionChart monthlyNet={available} />
+          <IncomePredictor />
           <ExpenseDonut expenses={activeBudget.expenses.map(e => ({ category: e.category, amount: e.amount }))} />
         </div>
       </div>
@@ -572,7 +648,7 @@ function DashboardPage({ budgets, goals, exchangeRate, userName }: {
       {/* Goals Quick View */}
       {goals.length > 0 && (
         <Card className="glass border-white/5 p-4">
-          <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><Target size={16} /> Metas de Ahorro</h3>
+              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><Target size={16} aria-hidden="true" /> Metas de Ahorro</h3>
           <div className="space-y-3">
             {goals.slice(0, 3).map(g => (
               <div key={g.id} className="space-y-1">
@@ -649,7 +725,9 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
   }
 
   const addIncome = async () => {
-    if (!activeBudget || !newIncome.description || newIncome.amount <= 0) return
+    if (!activeBudget) { toast.error('Selecciona un presupuesto activo'); return }
+    if (!newIncome.description || newIncome.description.trim() === '') { toast.error('Ingresa una descripción para el ingreso'); return }
+    if (!newIncome.amount || newIncome.amount <= 0) { toast.error('Ingresa un monto mayor a 0'); return }
     setSaving(true)
     try {
       // Convert USD to CRC if necessary
@@ -659,16 +737,17 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
       } else if (newIncome.currency !== activeBudget.currency && newIncome.currency === 'CRC' && exchangeRate?.sell) {
         amountInBudgetCurrency = newIncome.amount / exchangeRate.sell
       }
-      const incomeToAdd = { ...newIncome, amount: amountInBudgetCurrency, currency: activeBudget.currency, id: crypto.randomUUID() }
-      const updated = { ...activeBudget, incomes: [...activeBudget.incomes, incomeToAdd] }
-      const res = await fetch(`/api/budgets/${activeBudget.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated),
+      const payload = { category: newIncome.category, description: newIncome.description, amount: amountInBudgetCurrency }
+      const res = await fetch(`/api/budgets/${activeBudget.id}/incomes`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error('Error updating budget')
+      if (!res.ok) throw new Error('Error agregando ingreso')
+      const created = await res.json()
+      const incomeToAdd = { id: created.id || crypto.randomUUID(), category: newIncome.category, description: newIncome.description, amount: amountInBudgetCurrency }
+      const updated = { ...activeBudget, incomes: [...activeBudget.incomes, incomeToAdd] }
       setActiveBudget(updated)
       setNewIncome({ category: 'salary', description: '', amount: 0, currency: 'CRC' })
-      onRefresh()
       toast.success('Ingreso agregado')
     } catch {
       toast.error('Error al agregar')
@@ -676,7 +755,9 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
   }
 
   const addExpense = async () => {
-    if (!activeBudget || !newExpense.description || newExpense.amount <= 0) return
+    if (!activeBudget) { toast.error('Selecciona un presupuesto activo'); return }
+    if (!newExpense.description || newExpense.description.trim() === '') { toast.error('Ingresa una descripción para el gasto'); return }
+    if (!newExpense.amount || newExpense.amount <= 0) { toast.error('Ingresa un monto mayor a 0'); return }
     setSaving(true)
     try {
       // Convert USD to CRC if necessary
@@ -686,53 +767,49 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
       } else if (newExpense.currency !== activeBudget.currency && newExpense.currency === 'CRC' && exchangeRate?.sell) {
         amountInBudgetCurrency = newExpense.amount / exchangeRate.sell
       }
-      const expenseToAdd = { ...newExpense, amount: amountInBudgetCurrency, currency: activeBudget.currency, id: crypto.randomUUID() }
-      const updated = { ...activeBudget, expenses: [...activeBudget.expenses, expenseToAdd] }
-      const res = await fetch(`/api/budgets/${activeBudget.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated),
+      const payload = { category: newExpense.category, description: newExpense.description, amount: amountInBudgetCurrency }
+      const res = await fetch(`/api/budgets/${activeBudget.id}/expenses`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error('Error updating budget')
+      if (!res.ok) throw new Error('Error agregando gasto')
+      const created = await res.json()
+      const expenseToAdd = { id: created.id || crypto.randomUUID(), category: newExpense.category, description: newExpense.description, amount: amountInBudgetCurrency }
+      const updated = { ...activeBudget, expenses: [...activeBudget.expenses, expenseToAdd] }
       setActiveBudget(updated)
       setNewExpense({ category: 'fixed', description: '', amount: 0, currency: 'CRC' })
-      onRefresh()
       toast.success('Gasto agregado')
     } catch {
       toast.error('Error al agregar')
     } finally { setSaving(false) }
   }
 
-  const removeIncome = async (idx: number) => {
+  const removeIncome = async (itemId: string) => {
     if (!activeBudget) return
-    const updated = { ...activeBudget, incomes: activeBudget.incomes.filter((_, i) => i !== idx) }
-    const res = await fetch(`/api/budgets/${activeBudget.id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updated),
-    })
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/budgets/${activeBudget.id}/incomes/${itemId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Error eliminando ingreso')
+      const updated = { ...activeBudget, incomes: activeBudget.incomes.filter(i => i.id !== itemId) }
       setActiveBudget(updated)
-      onRefresh()
       toast.success('Ingreso eliminado')
-    } else {
+    } catch (e) {
+      console.error(e)
       toast.error('Error al eliminar ingreso')
     }
   }
 
-  const removeExpense = async (idx: number) => {
+  const removeExpense = async (itemId: string) => {
     if (!activeBudget) return
-    const updated = { ...activeBudget, expenses: activeBudget.expenses.filter((_, i) => i !== idx) }
-    const res = await fetch(`/api/budgets/${activeBudget.id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updated),
-    })
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/budgets/${activeBudget.id}/expenses/${itemId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Error eliminando gasto')
+      const updated = { ...activeBudget, expenses: activeBudget.expenses.filter(e => e.id !== itemId) }
       setActiveBudget(updated)
-      onRefresh()
       toast.success('Gasto eliminado')
-    } else {
+    } catch (e) {
+      console.error(e)
       toast.error('Error al eliminar gasto')
     }
-    toast.success('Gasto eliminado')
   }
 
   const deleteBudget = async (id: string) => {
@@ -747,7 +824,7 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold">Presupuesto</h1>
         <Button onClick={() => setShowNewBudget(true)} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
-          <Plus size={16} className="mr-1" /> Nuevo Presupuesto
+          <Plus size={16} className="mr-1" aria-hidden="true" /> Nuevo Presupuesto
         </Button>
       </div>
 
@@ -809,17 +886,17 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
           <Card className="glass border-white/5 p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold">{activeBudget.name}</h2>
-              <Button variant="ghost" size="sm" onClick={() => deleteBudget(activeBudget.id)} className="text-red-400 hover:text-red-300">
-                <Trash2 size={14} />
+              <Button variant="ghost" size="sm" onClick={() => deleteBudget(activeBudget.id)} className="text-red-400 hover:text-red-300" aria-label={`Eliminar presupuesto ${activeBudget.name}`}>
+                <Trash2 size={14} aria-hidden="true" />
               </Button>
             </div>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-xs text-muted-foreground">Ingresos</p>
+                <p className="text-xs text-muted-foreground">Entradas</p>
                 <p className="text-lg font-bold text-green-400">{formatCRC(totalIncome, activeBudget.currency)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Gastos</p>
+                <p className="text-xs text-muted-foreground">Salidas</p>
                 <p className="text-lg font-bold text-red-400">{formatCRC(totalExpenses, activeBudget.currency)}</p>
               </div>
               <div>
@@ -836,8 +913,8 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Incomes */}
             <Card className="glass border-white/5 p-4">
-              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2 text-green-400">
-                <TrendingUp size={16} /> Ingresos
+                <h3 className="font-semibold text-sm mb-3 flex items-center gap-2 text-green-400">
+                <TrendingUp size={16} aria-hidden="true" /> Entradas
               </h3>
               <div className="space-y-2 mb-4 max-h-64 overflow-y-auto custom-scroll">
                 {activeBudget.incomes.map((item, idx) => (
@@ -848,17 +925,17 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-green-400">{formatCRC(item.amount, activeBudget.currency)}</span>
-                      <button onClick={() => removeIncome(idx)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300">
-                        <Trash2 size={14} />
+                      <button onClick={() => removeIncome(item.id)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300" aria-label={`Eliminar ingreso ${item.description}`}>
+                        <Trash2 size={14} aria-hidden="true" />
                       </button>
                     </div>
                   </div>
                 ))}
-                {activeBudget.incomes.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Sin ingresos</p>}
+                {activeBudget.incomes.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Sin entradas</p>}
               </div>
               <Separator className="bg-white/5 mb-3" />
               <div className="space-y-2">
-                <Input placeholder="Descripción (ej: Salario, Bonificación)" value={newIncome.description}
+                <Input placeholder="Descripción (ej: Salario, Bonificación)" aria-label="Descripción ingreso" value={newIncome.description}
                   onChange={e => setNewIncome({ ...newIncome, description: e.target.value })}
                   className="bg-white/5 border-white/10 text-sm" />
                 <div className="flex gap-2">
@@ -871,7 +948,7 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   <div className="flex-1 min-w-[140px]">
-                    <Input type="number" placeholder="Monto" value={newIncome.amount || ''}
+                    <Input type="number" placeholder="Monto" aria-label="Monto ingreso" value={newIncome.amount || ''}
                       onChange={e => setNewIncome({ ...newIncome, amount: parseFloat(e.target.value) || 0 })}
                       className="bg-white/5 border-white/10 text-sm w-full" />
                   </div>
@@ -882,8 +959,8 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
                       <SelectItem value="USD">$ USD</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button size="sm" onClick={addIncome} disabled={saving} className="bg-green-600 hover:bg-green-700 flex-shrink-0">
-                    <Plus size={14} />
+                  <Button size="sm" onClick={addIncome} disabled={saving} className="bg-green-600 hover:bg-green-700 flex-shrink-0" aria-label="Agregar ingreso">
+                    <Plus size={14} aria-hidden="true" />
                   </Button>
                 </div>
               </div>
@@ -891,8 +968,8 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
 
             {/* Expenses */}
             <Card className="glass border-white/5 p-4">
-              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2 text-red-400">
-                <TrendingDown size={16} /> Gastos
+                <h3 className="font-semibold text-sm mb-3 flex items-center gap-2 text-red-400">
+                <TrendingDown size={16} aria-hidden="true" /> Salidas
               </h3>
               <div className="space-y-2 mb-4 max-h-64 overflow-y-auto custom-scroll">
                 {activeBudget.expenses.map((item, idx) => (
@@ -903,17 +980,17 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-red-400">{formatCRC(item.amount, activeBudget.currency)}</span>
-                      <button onClick={() => removeExpense(idx)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300">
-                        <Trash2 size={14} />
+                      <button onClick={() => removeExpense(item.id)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300" aria-label={`Eliminar gasto ${item.description}`}>
+                        <Trash2 size={14} aria-hidden="true" />
                       </button>
                     </div>
                   </div>
                 ))}
-                {activeBudget.expenses.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Sin gastos</p>}
+                {activeBudget.expenses.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Sin salidas</p>}
               </div>
               <Separator className="bg-white/5 mb-3" />
               <div className="space-y-2">
-                <Input placeholder="Descripción (ej: Comida, Transporte, Servicios)" value={newExpense.description}
+                <Input placeholder="Descripción (ej: Comida, Transporte, Servicios)" aria-label="Descripción gasto" value={newExpense.description}
                   onChange={e => setNewExpense({ ...newExpense, description: e.target.value })}
                   className="bg-white/5 border-white/10 text-sm" />
                 <div className="flex gap-2">
@@ -926,7 +1003,7 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   <div className="flex-1 min-w-[140px]">
-                    <Input type="number" placeholder="Monto" value={newExpense.amount || ''}
+                    <Input type="number" placeholder="Monto" aria-label="Monto gasto" value={newExpense.amount || ''}
                       onChange={e => setNewExpense({ ...newExpense, amount: parseFloat(e.target.value) || 0 })}
                       className="bg-white/5 border-white/10 text-sm w-full" />
                   </div>
@@ -937,8 +1014,8 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
                       <SelectItem value="USD">$ USD</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button size="sm" onClick={addExpense} disabled={saving} className="bg-red-600 hover:bg-red-700 flex-shrink-0">
-                    <Plus size={14} />
+                  <Button size="sm" onClick={addExpense} disabled={saving} className="bg-red-600 hover:bg-red-700 flex-shrink-0" aria-label="Agregar gasto">
+                    <Plus size={14} aria-hidden="true" />
                   </Button>
                 </div>
               </div>
@@ -956,7 +1033,7 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
                   const url = URL.createObjectURL(blob)
                   const a = document.createElement('a'); a.href = url; a.download = `${activeBudget.name}.json`; a.click()
                 }}>
-                <FileJson size={14} className="mr-1" /> JSON
+                <FileJson size={14} className="mr-1" aria-hidden="true" /> JSON
               </Button>
               <Button variant="outline" size="sm" className="border-white/10"
                 onClick={() => {
@@ -971,18 +1048,18 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
                   const url = URL.createObjectURL(blob)
                   const a = document.createElement('a'); a.href = url; a.download = `${activeBudget.name}.csv`; a.click()
                 }}>
-                <FileSpreadsheet size={14} className="mr-1" /> CSV
+                <FileSpreadsheet size={14} className="mr-1" aria-hidden="true" /> CSV
               </Button>
             </div>
           </Card>
         </>
       ) : (
         <Card className="glass border-white/5 p-8 text-center">
-          <Wallet size={40} className="mx-auto mb-4 text-muted-foreground" />
+          <Wallet size={40} className="mx-auto mb-4 text-muted-foreground" aria-hidden="true" />
           <h2 className="text-lg font-semibold mb-2">Sin presupuesto activo</h2>
           <p className="text-muted-foreground text-sm mb-4">Crea tu primer presupuesto para empezar a gestionar tus finanzas</p>
           <Button onClick={() => setShowNewBudget(true)} className="bg-indigo-600 hover:bg-indigo-700">
-            <Plus size={16} className="mr-1" /> Crear Presupuesto
+            <Plus size={16} className="mr-1" aria-hidden="true" /> Crear Presupuesto
           </Button>
         </Card>
       )}
@@ -1031,7 +1108,7 @@ function LoanCalc() {
 
   return (
     <Card className="glass border-white/5 p-6">
-      <h3 className="font-semibold mb-4 flex items-center gap-2"><Banknote size={18} /> Calculadora de Préstamo</h3>
+      <h3 className="font-semibold mb-4 flex items-center gap-2"><Banknote size={18} aria-hidden="true" /> Calculadora de Préstamo</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
           <div className="space-y-2">
@@ -1128,7 +1205,7 @@ function CreditCardCalc() {
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h3 className="font-semibold flex items-center gap-2">
-          <CreditCard size={18} className="text-[var(--bp-orange)]" /> Simulador Tarjeta de Crédito BP
+          <CreditCard size={18} className="text-[var(--bp-orange)]" aria-hidden="true" /> Simulador Tarjeta de Crédito BP
         </h3>
         <div className="flex gap-1 p-1 rounded-lg bg-white/5 border border-white/10">
           <button type="button" onClick={() => setMoneda('CRC')}
@@ -1145,7 +1222,7 @@ function CreditCardCalc() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7 space-y-4">
           <Card className="glass border-white/5 p-5">
-            <h4 className="font-medium text-sm mb-4 flex items-center gap-2"><Wallet size={16} className="text-[var(--bp-purple-light)]" /> Datos Principales</h4>
+            <h4 className="font-medium text-sm mb-4 flex items-center gap-2"><Wallet size={16} className="text-[var(--bp-purple-light)]" aria-hidden="true" /> Datos Principales</h4>
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Saldo Principal Adeudado</Label>
@@ -1202,7 +1279,7 @@ function CreditCardCalc() {
           <Card className="glass border-white/5 p-5 bg-[#12121f]">
             <div className="flex items-center justify-between mb-2">
               <div>
-                <h4 className="font-medium text-sm flex items-center gap-2"><Settings size={16} className="text-[var(--bp-orange)]" /> Modo Experto</h4>
+                <h4 className="font-medium text-sm flex items-center gap-2"><Settings size={16} className="text-[var(--bp-orange)]" aria-hidden="true" /> Modo Experto</h4>
                 <p className="text-xs text-muted-foreground">Calibración avanzada</p>
               </div>
               <Switch checked={expertoOn} onCheckedChange={setExpertoOn} />
@@ -1307,7 +1384,7 @@ function BPLoyaltyCalc() {
 
   return (
     <Card className="glass border-white/5 p-6">
-      <h3 className="font-semibold mb-4 flex items-center gap-2"><Landmark size={18} className="text-purple-400" /> Extrafinanciamientos</h3>
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><Landmark size={18} className="text-purple-400" aria-hidden="true" /> Extrafinanciamientos</h3>
 
       {/* Program selector */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -1356,7 +1433,7 @@ function BPLoyaltyCalc() {
           )}
           {program === 'tasaCero' && (
             <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-300">
-              <AlertTriangle size={14} className="inline mr-1" />
+              <AlertTriangle size={14} className="inline mr-1" aria-hidden="true" />
               Comisión del 3% por formalización. Plazos: 3, 4, 6, 9, 10, 12 meses.
             </div>
           )}
@@ -1410,7 +1487,7 @@ function NetSalaryCalc() {
               className="bg-white/5 border-white/10" />
           </div>
           <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
-            <Info size={14} className="inline mr-1" />
+            <Info size={14} className="inline mr-1" aria-hidden="true" />
             Deducciones: CCSS 10.67% + Impuesto sobre la Renta (tramos 2024)
           </div>
           <Button onClick={calculate} className="w-full bg-indigo-600 hover:bg-indigo-700">Calcular Salario Neto</Button>
@@ -1609,7 +1686,7 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Metas de Ahorro</h1>
         <Button onClick={() => setShowNew(true)} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
-          <Plus size={16} className="mr-1" /> Nueva Meta
+          <Plus size={16} className="mr-1" aria-hidden="true" /> Nueva Meta
         </Button>
       </div>
 
@@ -1634,14 +1711,15 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
                   className="bg-white/5 border-white/10" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Fecha Objetivo</Label>
-                <Input type="date" value={newGoal.targetDate}
-                  onChange={e => setNewGoal({ ...newGoal, targetDate: e.target.value })}
-                  className="bg-white/5 border-white/10" />
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="flex-1">
+                <DateInputField
+                  label="Fecha Objetivo"
+                  value={newGoal.targetDate}
+                  onChange={value => setNewGoal({ ...newGoal, targetDate: value })}
+                />
               </div>
-              <div className="space-y-2">
+              <div className="w-full sm:w-44 space-y-2">
                 <Label>Moneda</Label>
                 <Select value={newGoal.currency} onValueChange={v => setNewGoal({ ...newGoal, currency: v })}>
                   <SelectTrigger className="bg-white/5 border-white/10"><SelectValue /></SelectTrigger>
@@ -1680,6 +1758,19 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
                     className="bg-white/5 border-white/10" />
                 </div>
               </div>
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <div className="flex-1">
+                  <DateInputField
+                    label="Fecha Objetivo"
+                    value={editingGoal.targetDate || ''}
+                    onChange={value => setEditingGoal({ ...editingGoal, targetDate: value })}
+                  />
+                </div>
+                <div className="w-full sm:w-44 space-y-2">
+                  <Label className="invisible">Moneda</Label>
+                  <div />
+                </div>
+              </div>
               <Button onClick={updateGoal} className="w-full bg-indigo-600 hover:bg-indigo-700">Guardar</Button>
             </div>
           )}
@@ -1688,7 +1779,7 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
 
       {goals.length === 0 ? (
         <Card className="glass border-white/5 p-8 text-center">
-          <Target size={40} className="mx-auto mb-4 text-muted-foreground" />
+          <Target size={40} className="mx-auto mb-4 text-muted-foreground" aria-hidden="true" />
           <h2 className="text-lg font-semibold mb-2">Sin metas de ahorro</h2>
           <p className="text-muted-foreground text-sm">Crea tu primera meta para empezar a ahorrar</p>
         </Card>
@@ -1701,8 +1792,8 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="font-semibold">{g.name}</h3>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingGoal(g)}><Settings size={14} /></Button>
-                    <Button variant="ghost" size="sm" onClick={() => deleteGoal(g.id)} className="text-red-400"><Trash2 size={14} /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => setEditingGoal(g)} aria-label={`Editar meta ${g.name}`}><Settings size={14} aria-hidden="true" /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => deleteGoal(g.id)} className="text-red-400" aria-label={`Eliminar meta ${g.name}`}><Trash2 size={14} aria-hidden="true" /></Button>
                   </div>
                 </div>
                 <div className="flex justify-between text-sm mb-2">
@@ -1735,11 +1826,11 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" className="flex-1 border-green-500/30 text-green-400 hover:bg-green-500/10" 
                       onClick={() => { setTransactingGoalId(g.id); setTransactionType('add'); setTransactionAmount('') }}>
-                      <Plus size={14} className="mr-1" /> Agregar
+                      <Plus size={14} className="mr-1" aria-hidden="true" /> Agregar
                     </Button>
                     <Button size="sm" variant="outline" className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10" 
                       onClick={() => { setTransactingGoalId(g.id); setTransactionType('withdraw'); setTransactionAmount('') }}>
-                      <Minus size={14} className="mr-1" /> Retirar
+                      <Minus size={14} className="mr-1" aria-hidden="true" /> Retirar
                     </Button>
                   </div>
                 )}
@@ -1844,7 +1935,7 @@ function TipsCarouselPage() {
             onClick={goPrev}
             className="p-3 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-white/10 hover:border-indigo-500/50 transition-all text-indigo-300 hover:text-indigo-200"
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={24} aria-hidden="true" />
           </motion.button>
 
           {/* Progress indicators */}
@@ -1875,7 +1966,7 @@ function TipsCarouselPage() {
             onClick={goNext}
             className="p-3 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-white/10 hover:border-indigo-500/50 transition-all text-indigo-300 hover:text-indigo-200"
           >
-            <ChevronRight size={24} />
+            <ChevronRight size={24} aria-hidden="true" />
           </motion.button>
         </div>
       </div>
@@ -1974,7 +2065,7 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
 
         <TabsContent value="profile">
           <Card className="glass border-white/5 p-6">
-            <h3 className="font-semibold mb-4 flex items-center gap-2"><User size={18} /> Información Personal</h3>
+            <h3 className="font-semibold mb-4 flex items-center gap-2"><User size={18} aria-hidden="true" /> Información Personal</h3>
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Nombre</Label>
@@ -1985,7 +2076,7 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
                 <Input value={userEmail} disabled className="bg-white/5 border-white/10 opacity-60" />
               </div>
               <Button className="bg-indigo-600 hover:bg-indigo-700">
-                <Save size={16} className="mr-1" /> Guardar
+                <Save size={16} className="mr-1" aria-hidden="true" /> Guardar
               </Button>
             </div>
           </Card>
@@ -2022,7 +2113,7 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
             )}
             <Button variant="outline" size="sm" className="mt-4 border-white/10"
               onClick={() => fetch('/api/exchange-rate').then(r => r.json()).then(() => toast.success('Tipo de cambio actualizado'))}>
-              <RefreshCw size={14} className="mr-1" /> Actualizar
+              <RefreshCw size={14} className="mr-1" aria-hidden="true" /> Actualizar
             </Button>
           </Card>
         </TabsContent>
@@ -2100,7 +2191,7 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
                   { icon: <Calculator size={18} />, title: 'Calculadoras financieras', desc: 'Préstamos, tarjetas de crédito, extrafinanciamientos y salario neto con fórmulas actualizadas.' },
                   { icon: <Landmark size={18} />, title: 'Extrafinanciamientos BP', desc: 'Simula Minicuotas, Tasa Cero, Compra de Saldos u opciones personalizadas con tasa y comisión.' },
                   { icon: <Globe size={18} />, title: 'Tipo de cambio al día de hoy', desc: 'Conversiones automáticas entre colones y dólares con el tipo de cambio vigente.' },
-                  { icon: <Wallet size={18} />, title: 'Presupuesto personal', desc: 'Crea presupuestos, registra ingresos y gastos, y exporta en JSON o CSV.' },
+                  { icon: <Wallet size={18} />, title: 'Presupuesto personal', desc: 'Crea presupuestos, registra entradas y salidas, y exporta en JSON o CSV.' },
                   { icon: <Target size={18} />, title: 'Metas de ahorro', desc: 'Define objetivos, haz seguimiento del progreso y visualiza tu avance.' },
                   { icon: <Lightbulb size={18} />, title: 'Consejos financieros', desc: 'Tips prácticos con rotación automática para mejorar tus decisiones diarias.' },
                 ].map((item, i) => (
@@ -2116,7 +2207,7 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
               <Separator className="bg-white/5 my-4" />
               <a href="https://www.linkedin.com/in/enrique-cascante" target="_blank" rel="noopener noreferrer"
                 className="text-indigo-400 hover:text-indigo-300 text-sm flex items-center justify-center gap-1">
-                <ExternalLink size={14} /> {FOOTER_TEXT}
+                <ExternalLink size={14} aria-hidden="true" /> {FOOTER_TEXT}
               </a>
             </div>
           </Card>
@@ -2155,8 +2246,9 @@ function Sidebar() {
               onClick={toggleSidebar}
               title="Expandir menú"
               className="sidebar-toggle-btn w-full flex justify-center py-2 rounded-lg transition-colors"
+              aria-label="Expandir menú"
             >
-              <ChevronRight size={20} />
+              <ChevronRight size={20} aria-hidden="true" />
             </button>
           </div>
         ) : (
@@ -2169,8 +2261,9 @@ function Sidebar() {
               {APP_NAME}
             </motion.span>
             <button type="button" onClick={toggleSidebar}
-              className="ml-auto text-muted-foreground hover:text-indigo-300 transition-colors flex-shrink-0 p-1 rounded-md hover:bg-indigo-500/10">
-              <ChevronLeft size={16} />
+              className="ml-auto text-muted-foreground hover:text-indigo-300 transition-colors flex-shrink-0 p-1 rounded-md hover:bg-indigo-500/10"
+              aria-label="Colapsar menú">
+              <ChevronLeft size={16} aria-hidden="true" />
             </button>
           </div>
         )}
@@ -2194,8 +2287,9 @@ function Sidebar() {
                           ? 'bg-indigo-500/15 text-indigo-400 border-r-2 border-indigo-500'
                           : 'text-muted-foreground hover:bg-indigo-600/10 hover:text-foreground'
                       } ${sidebarCollapsed ? 'justify-center px-0' : ''}`}
+                      aria-label={item.label}
                     >
-                      {item.icon}
+                      <span aria-hidden="true" className="flex-shrink-0">{item.icon}</span>
                       {!sidebarCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
                     </button>
                   </TooltipTrigger>
@@ -2223,7 +2317,7 @@ function Sidebar() {
             )}
             {sidebarCollapsed && (
               <button onClick={() => signOut()} className="text-xs text-red-400 hover:text-red-300" title="Cerrar sesión">
-                <LogOut size={16} />
+                <LogOut size={16} aria-hidden="true" />
               </button>
             )}
           </div>
@@ -2250,8 +2344,8 @@ function MobileNav() {
           </div>
           <span className="font-bold gold-shimmer text-sm">{APP_NAME}</span>
         </div>
-        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-muted-foreground">
-          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-muted-foreground" aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}>
+          {mobileMenuOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
         </button>
       </div>
 
@@ -2273,13 +2367,13 @@ function MobileNav() {
                       ? 'bg-indigo-500/15 text-indigo-400'
                       : 'text-muted-foreground hover:bg-indigo-600/10'
                   }`}>
-                  {item.icon} {item.label}
+                  <span aria-hidden="true">{item.icon}</span> {item.label}
                 </button>
               ))}
               {session && (
                 <button onClick={() => signOut()}
                   className="w-full flex items-center gap-3 p-3 rounded-xl text-sm text-red-400 hover:bg-red-500/10">
-                  <LogOut size={20} /> Cerrar Sesión
+                  <LogOut size={20} aria-hidden="true" /> Cerrar Sesión
                 </button>
               )}
             </div>
@@ -2296,7 +2390,7 @@ function MobileNav() {
               className={`flex flex-col items-center gap-0.5 p-2 rounded-lg transition-colors ${
                 activePage === item.id ? 'text-indigo-400' : 'text-muted-foreground'
               }`}>
-              {item.icon}
+              <span aria-hidden="true">{item.icon}</span>
               <span className="text-[10px]">{item.label.split(' ')[0]}</span>
             </button>
           ))}
@@ -2365,10 +2459,14 @@ function MainApp() {
         return <AguinaldoPage />
       case 'metas':
         return <SavingsGoalsPage goals={goals} userId={userId} onRefresh={refreshData} />
+      case 'debt_optimizer':
+        return <DebtOptimizerExample />
       case 'consejos':
         return <TipsCarouselPage />
       case 'config':
         return <ConfigPage userId={userId} userName={userName} userEmail={userEmail} exchangeRate={exchangeRate} />
+      case 'audit':
+        return <AuditPage />
       default:
         return <DashboardPage budgets={budgets} goals={goals} exchangeRate={exchangeRate} userName={userName} />
     }

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/turso'
+import { auditUpdate, auditDelete } from '@/lib/audit'
+import { validateBudgetItemAmount } from '@/lib/numeric-validation'
+import { v4 as uuid } from 'uuid'
 
 // GET /api/budgets/[id]
 export async function GET(
@@ -52,7 +55,21 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    await db.execute({ sql: 'DELETE FROM budgets WHERE id = ?', args: [id] })
+    // Fetch old values for audit
+    const beforeRes = await db.execute({ sql: 'SELECT * FROM budgets WHERE id = ?', args: [id] })
+    const before = beforeRes.rows[0]
+
+    await auditDelete({
+      userId: before?.user_id || 'unknown',
+      entity: 'Budget',
+      entityId: id,
+      oldValues: before || null,
+      ipAddress: req.headers.get('x-forwarded-for') || null,
+      fn: async () => {
+        await db.execute({ sql: 'DELETE FROM budgets WHERE id = ?', args: [id] })
+      }
+    })
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('DELETE budget error:', error)
@@ -71,6 +88,9 @@ export async function PUT(
     const { name, period, currency, holderName, incomes, expenses } = body
 
     // Update budget header
+    const beforeBudgetRes = await db.execute({ sql: 'SELECT * FROM budgets WHERE id = ?', args: [id] })
+    const beforeBudget = beforeBudgetRes.rows[0]
+
     await db.execute({
       sql: `UPDATE budgets SET name=?, period=?, currency=?, holder_name=?, updated_at=datetime('now') WHERE id=?`,
       args: [name, period, currency, holderName || null, id],
@@ -79,12 +99,23 @@ export async function PUT(
     const budget = await db.execute({ sql: 'SELECT user_id FROM budgets WHERE id = ?', args: [id] })
     const budgetUserId = budget.rows[0]?.user_id
 
-    // Replace incomes
+    // Replace incomes with validation
     if (incomes !== undefined) {
+      // Validate all income amounts first
+      for (let i = 0; i < incomes.length; i++) {
+        const item = incomes[i]
+        const validation = validateBudgetItemAmount(item.amount, `Ingreso ${i + 1}`)
+        if (!validation.isValid && validation.error) {
+          return NextResponse.json(
+              { error: 'Validación numérica fallida en entradas', details: validation.error },
+              { status: 400 }
+            )
+        }
+      }
+
       await db.execute({ sql: 'DELETE FROM income_items WHERE budget_id = ?', args: [id] })
       for (let i = 0; i < incomes.length; i++) {
         const item = incomes[i]
-        const { v4: uuid } = await import('uuid')
         await db.execute({
           sql: `INSERT INTO income_items (id, budget_id, user_id, category, description, amount, sort_order)
                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -93,12 +124,23 @@ export async function PUT(
       }
     }
 
-    // Replace expenses
+    // Replace expenses with validation
     if (expenses !== undefined) {
+      // Validate all expense amounts first
+      for (let i = 0; i < expenses.length; i++) {
+        const item = expenses[i]
+        const validation = validateBudgetItemAmount(item.amount, `Gasto ${i + 1}`)
+        if (!validation.isValid && validation.error) {
+          return NextResponse.json(
+              { error: 'Validación numérica fallida en salidas', details: validation.error },
+              { status: 400 }
+            )
+        }
+      }
+
       await db.execute({ sql: 'DELETE FROM expense_items WHERE budget_id = ?', args: [id] })
       for (let i = 0; i < expenses.length; i++) {
         const item = expenses[i]
-        const { v4: uuid } = await import('uuid')
         await db.execute({
           sql: `INSERT INTO expense_items (id, budget_id, user_id, category, description, amount, sort_order)
                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -106,6 +148,17 @@ export async function PUT(
         })
       }
     }
+
+    // Log audit for the update
+    await auditUpdate({
+      userId: beforeBudget?.user_id || 'unknown',
+      entity: 'Budget',
+      entityId: id,
+      oldValues: beforeBudget || null,
+      newValues: { name, period, currency, holderName, incomes, expenses },
+      ipAddress: req.headers.get('x-forwarded-for') || null,
+      fn: async () => { /* noop: already applied */ }
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

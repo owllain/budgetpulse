@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/turso'
+import { auditCreate, auditUpdate, auditDelete } from '@/lib/audit'
+import { validateCreditCardAmounts, validateLoanAmounts, sanitizeNumericAmount } from '@/lib/numeric-validation'
 
 export type CreditProduct = {
   id: string
@@ -120,49 +122,84 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
+    // Validate numeric amounts based on product type
     if (product_type === 'credit_card') {
-      await db.execute(
-        `INSERT INTO credit_cards (id, user_id, name, financial_entity, currency, credit_limit, current_balance, minimum_payment, statement_closing_day, payment_due_day, interest_rate, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-        [
-          id,
-          user_id,
-          name,
-          financial_entity,
-          currency,
-          credit_limit || 0,
-          current_balance || 0,
-          minimum_payment || 0,
-          statement_closing_day || 1,
-          payment_due_day,
-          interest_rate || 0,
-        ]
-      )
+      const validation = validateCreditCardAmounts(body)
+      if (!validation.isValid) {
+        return NextResponse.json(
+          { error: 'Validación numérica fallida', details: validation.errors },
+          { status: 400 }
+        )
+      }
     } else if (product_type === 'loan') {
-      const principal = initial_amount || 0
-      const months = total_installments || (loan_term_years || 1) * 12
-      const monthlyPayment = calculateMonthlyPayment(principal, interest_rate || 0, months)
+      const validation = validateLoanAmounts(body)
+      if (!validation.isValid) {
+        return NextResponse.json(
+          { error: 'Validación numérica fallida', details: validation.errors },
+          { status: 400 }
+        )
+      }
+    }
+
+    if (product_type === 'credit_card') {
+      await auditCreate({
+        userId: user_id,
+        entity: 'Credit',
+        newValues: { name, financial_entity, currency, credit_limit, current_balance, minimum_payment, statement_closing_day, payment_due_day, interest_rate },
+        ipAddress: req.headers.get('x-forwarded-for') || null,
+        fn: async () => {
+          await db.execute(
+            `INSERT INTO credit_cards (id, user_id, name, financial_entity, currency, credit_limit, current_balance, minimum_payment, statement_closing_day, payment_due_day, interest_rate, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+            [
+              id,
+              user_id,
+              name,
+              financial_entity,
+              currency,
+              sanitizeNumericAmount(credit_limit, 0),
+              sanitizeNumericAmount(current_balance, 0),
+              sanitizeNumericAmount(minimum_payment, 0),
+              statement_closing_day || 1,
+              payment_due_day,
+              sanitizeNumericAmount(interest_rate, 0),
+            ]
+          )
+        }
+      })
+    } else if (product_type === 'loan') {
+      const principal = sanitizeNumericAmount(initial_amount, 0)
+      const months = sanitizeNumericAmount(total_installments) || (sanitizeNumericAmount(loan_term_years, 1) * 12)
+      const monthlyPayment = calculateMonthlyPayment(principal, sanitizeNumericAmount(interest_rate, 0), months)
       const total_with_interest = monthlyPayment * months
-      await db.execute(
-        `INSERT INTO loans (id, user_id, name, financial_entity, currency, initial_amount, total_with_interest, current_balance, loan_term_years, total_installments, paid_installments, installment_amount, payment_due_day, interest_rate, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-        [
-          id,
-          user_id,
-          name,
-          financial_entity,
-          currency,
-          principal,
-          total_with_interest,
-          current_balance || principal,
-          loan_term_years || 1,
-          months,
-          0,
-          monthlyPayment,
-          payment_due_day,
-          interest_rate || 0,
-        ]
-      )
+      await auditCreate({
+        userId: user_id,
+        entity: 'Credit',
+        newValues: { name, financial_entity, currency, initial_amount: principal, total_with_interest, current_balance, loan_term_years, total_installments: months },
+        ipAddress: req.headers.get('x-forwarded-for') || null,
+        fn: async () => {
+          await db.execute(
+            `INSERT INTO loans (id, user_id, name, financial_entity, currency, initial_amount, total_with_interest, current_balance, loan_term_years, total_installments, paid_installments, installment_amount, payment_due_day, interest_rate, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+            [
+              id,
+              user_id,
+              name,
+              financial_entity,
+              currency,
+              principal,
+              total_with_interest,
+              sanitizeNumericAmount(current_balance, principal),
+              sanitizeNumericAmount(loan_term_years, 1),
+              months,
+              0,
+              monthlyPayment,
+              payment_due_day,
+              sanitizeNumericAmount(interest_rate, 0),
+            ]
+          )
+        }
+      })
     } else {
       return NextResponse.json({ error: 'Unsupported product type' }, { status: 400 })
     }
@@ -202,51 +239,97 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
+    // Validate numeric amounts based on product type
     if (product_type === 'credit_card') {
-      await db.execute(
-        `UPDATE credit_cards
-         SET name = ?, financial_entity = ?, currency = ?, interest_rate = ?, current_balance = ?, credit_limit = ?, minimum_payment = ?, statement_closing_day = ?, payment_due_day = ?, updated_at = datetime('now')
-         WHERE id = ? AND user_id = ?`,
-        [
-          name,
-          financial_entity,
-          currency,
-          interest_rate || 0,
-          current_balance || 0,
-          credit_limit || 0,
-          minimum_payment || 0,
-          statement_closing_day || 1,
-          payment_due_day || 1,
-          id,
-          user_id,
-        ]
-      )
+      const validation = validateCreditCardAmounts(body)
+      if (!validation.isValid) {
+        return NextResponse.json(
+          { error: 'Validación numérica fallida', details: validation.errors },
+          { status: 400 }
+        )
+      }
     } else if (product_type === 'loan') {
-      const principal = initial_amount || 0
-      const months = total_installments || (loan_term_years || 1) * 12
-      const monthlyPayment = installment_amount || calculateMonthlyPayment(principal, interest_rate || 0, months)
+      const validation = validateLoanAmounts(body)
+      if (!validation.isValid) {
+        return NextResponse.json(
+          { error: 'Validación numérica fallida', details: validation.errors },
+          { status: 400 }
+        )
+      }
+    }
+
+    if (product_type === 'credit_card') {
+      // fetch before
+      const beforeRes = await db.execute('SELECT * FROM credit_cards WHERE id = ? AND user_id = ?', [id, user_id])
+      const before = beforeRes.rows[0]
+
+      await auditUpdate({
+        userId: user_id,
+        entity: 'Credit',
+        entityId: id,
+        oldValues: before || null,
+        newValues: { name, financial_entity, currency, interest_rate, current_balance, credit_limit, minimum_payment, statement_closing_day, payment_due_day },
+        ipAddress: req.headers.get('x-forwarded-for') || null,
+        fn: async () => {
+          await db.execute(
+            `UPDATE credit_cards
+             SET name = ?, financial_entity = ?, currency = ?, interest_rate = ?, current_balance = ?, credit_limit = ?, minimum_payment = ?, statement_closing_day = ?, payment_due_day = ?, updated_at = datetime('now')
+             WHERE id = ? AND user_id = ?`,
+            [
+              name,
+              financial_entity,
+              currency,
+              sanitizeNumericAmount(interest_rate, 0),
+              sanitizeNumericAmount(current_balance, 0),
+              sanitizeNumericAmount(credit_limit, 0),
+              sanitizeNumericAmount(minimum_payment, 0),
+              statement_closing_day || 1,
+              payment_due_day || 1,
+              id,
+              user_id,
+            ]
+          )
+        }
+      })
+    } else if (product_type === 'loan') {
+      const principal = sanitizeNumericAmount(initial_amount, 0)
+      const months = sanitizeNumericAmount(total_installments) || (sanitizeNumericAmount(loan_term_years, 1) * 12)
+      const monthlyPayment = installment_amount ? sanitizeNumericAmount(installment_amount, 0) : calculateMonthlyPayment(principal, sanitizeNumericAmount(interest_rate, 0), months)
       const total_with_interest = monthlyPayment * months
-      await db.execute(
-        `UPDATE loans
-         SET name = ?, financial_entity = ?, currency = ?, interest_rate = ?, current_balance = ?, initial_amount = ?, total_with_interest = ?, loan_term_years = ?, total_installments = ?, paid_installments = ?, installment_amount = ?, payment_due_day = ?, updated_at = datetime('now')
-         WHERE id = ? AND user_id = ?`,
-        [
-          name,
-          financial_entity,
-          currency,
-          interest_rate || 0,
-          current_balance || 0,
-          principal,
-          total_with_interest,
-          loan_term_years || 1,
-          months,
-          paid_installments || 0,
-          monthlyPayment,
-          payment_due_day || 1,
-          id,
-          user_id,
-        ]
-      )
+      const beforeRes = await db.execute('SELECT * FROM loans WHERE id = ? AND user_id = ?', [id, user_id])
+      const before = beforeRes.rows[0]
+
+      await auditUpdate({
+        userId: user_id,
+        entity: 'Credit',
+        entityId: id,
+        oldValues: before || null,
+        newValues: { name, financial_entity, currency, interest_rate, current_balance, initial_amount: principal, total_with_interest, loan_term_years, total_installments: months },
+        ipAddress: req.headers.get('x-forwarded-for') || null,
+        fn: async () => {
+          await db.execute(
+            `UPDATE loans
+             SET name = ?, financial_entity = ?, currency = ?, interest_rate = ?, current_balance = ?, initial_amount = ?, total_with_interest = ?, loan_term_years = ?, total_installments = ?, paid_installments = ?, installment_amount = ?, payment_due_day = ?, updated_at = datetime('now')
+             WHERE id = ? AND user_id = ?`,
+            [
+              name,
+              financial_entity,
+              currency,
+              sanitizeNumericAmount(interest_rate, 0),
+              sanitizeNumericAmount(current_balance, 0),
+              principal,
+              total_with_interest,
+              sanitizeNumericAmount(loan_term_years, 1),
+              months,
+              sanitizeNumericAmount(paid_installments, 0),
+              monthlyPayment,
+              payment_due_day || 1,
+              id,
+              user_id,
+            ]
+          )
+        }
+      })
     } else {
       return NextResponse.json({ error: 'Unsupported product type' }, { status: 400 })
     }
@@ -267,8 +350,23 @@ export async function DELETE(req: NextRequest) {
   if (!id || !userId) return NextResponse.json({ error: 'Missing id or userId' }, { status: 400 })
 
   try {
-    await db.execute('DELETE FROM credit_cards WHERE id = ? AND user_id = ?', [id, userId])
-    await db.execute('DELETE FROM loans WHERE id = ? AND user_id = ?', [id, userId])
+    // fetch existing
+    const beforeCard = await db.execute('SELECT * FROM credit_cards WHERE id = ? AND user_id = ?', [id, userId])
+    const beforeLoan = await db.execute('SELECT * FROM loans WHERE id = ? AND user_id = ?', [id, userId])
+    const before = beforeCard.rows[0] || beforeLoan.rows[0] || null
+
+    await auditDelete({
+      userId: userId,
+      entity: 'Credit',
+      entityId: id,
+      oldValues: before || null,
+      ipAddress: req.headers.get('x-forwarded-for') || null,
+      fn: async () => {
+        await db.execute('DELETE FROM credit_cards WHERE id = ? AND user_id = ?', [id, userId])
+        await db.execute('DELETE FROM loans WHERE id = ? AND user_id = ?', [id, userId])
+      }
+    })
+
     return NextResponse.json({ success: true })
   } catch (e) {
     console.error('Error deleting credit:', e)
