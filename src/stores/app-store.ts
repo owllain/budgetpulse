@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type PageId = 'dashboard' | 'presupuesto' | 'calculadoras' | 'aguinaldo' | 'metas' | 'consejos' | 'config'
+export type PageId = 'dashboard' | 'presupuesto' | 'creditos' | 'calculadoras' | 'aguinaldo' | 'metas' | 'consejos' | 'config'
 
 interface AppState {
   activePage: PageId

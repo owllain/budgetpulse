@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Wallet, Calculator, PiggyBank, Lightbulb,
   Settings, ChevronLeft, ChevronRight, LogOut, Menu, X,
-  TrendingUp, TrendingDown, Plus, Trash2, Download, Eye, EyeOff,
+  TrendingUp, TrendingDown, Plus, Minus, Trash2, Download, Eye, EyeOff,
   CreditCard, Shield, Target, Banknote, Percent, Calendar,
   ArrowUpRight, ArrowDownRight, DollarSign, Landmark,
   Heart, Star, Zap, Home, ChevronDown, ChevronUp,
@@ -34,6 +34,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { PieChart as RechartsPie, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 import { toast } from 'sonner'
+import { CreditsPage } from '@/components/CreditsPage'
 
 // ─── Constants ───────────────────────────────────────────────
 const APP_NAME = 'BudgetPulse'
@@ -42,7 +43,8 @@ const FOOTER_TEXT = 'Hecho por @enrique-cascante on LinkedIn'
 const NAV_ITEMS: { id: PageId; label: string; icon: React.ReactNode; group: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, group: 'Principal' },
   { id: 'presupuesto', label: 'Presupuesto', icon: <Wallet size={20} />, group: 'Principal' },
-  { id: 'calculadoras', label: 'Extrafinanciamientos', icon: <Calculator size={20} />, group: 'Herramientas' },
+  { id: 'creditos', label: 'Créditos', icon: <CreditCard size={20} />, group: 'Principal' },
+  { id: 'calculadoras', label: 'Calculadora Financiera', icon: <Calculator size={20} />, group: 'Herramientas' },
   { id: 'aguinaldo', label: 'Aguinaldo', icon: <Coins size={20} />, group: 'Herramientas' },
   { id: 'metas', label: 'Metas de Ahorro', icon: <Target size={20} />, group: 'Herramientas' },
   { id: 'consejos', label: 'Consejos', icon: <Lightbulb size={20} />, group: 'Aprende' },
@@ -296,7 +298,7 @@ function DebitCard({ balance, holderName, currency, healthScore, exchangeRate }:
   const [showBalance, setShowBalance] = useState(true)
 
   const healthClass = healthScore >= 70 ? 'health-good' : healthScore >= 40 ? 'health-warning' : 'health-danger'
-  const maskedNumber = '•••• •••• •••• 4829'
+  const maskedNumber = '*4293 1891 0000 AHORRO'
 
   const flipCurrency = currency === 'CRC' ? 'USD' : 'CRC'
   let flipBalance = balance
@@ -867,18 +869,20 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex gap-2">
-                  <Input type="number" placeholder="Monto" value={newIncome.amount || ''}
-                    onChange={e => setNewIncome({ ...newIncome, amount: parseFloat(e.target.value) || 0 })}
-                    className="bg-white/5 border-white/10 text-sm flex-1" />
+                <div className="flex gap-2 flex-wrap">
+                  <div className="flex-1 min-w-[140px]">
+                    <Input type="number" placeholder="Monto" value={newIncome.amount || ''}
+                      onChange={e => setNewIncome({ ...newIncome, amount: parseFloat(e.target.value) || 0 })}
+                      className="bg-white/5 border-white/10 text-sm w-full" />
+                  </div>
                   <Select value={newIncome.currency} onValueChange={v => setNewIncome({ ...newIncome, currency: v })}>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-sm w-20"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-sm w-24 flex-shrink-0"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="CRC">₡ CRC</SelectItem>
                       <SelectItem value="USD">$ USD</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button size="sm" onClick={addIncome} disabled={saving} className="bg-green-600 hover:bg-green-700">
+                  <Button size="sm" onClick={addIncome} disabled={saving} className="bg-green-600 hover:bg-green-700 flex-shrink-0">
                     <Plus size={14} />
                   </Button>
                 </div>
@@ -920,18 +924,20 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex gap-2">
-                  <Input type="number" placeholder="Monto" value={newExpense.amount || ''}
-                    onChange={e => setNewExpense({ ...newExpense, amount: parseFloat(e.target.value) || 0 })}
-                    className="bg-white/5 border-white/10 text-sm flex-1" />
+                <div className="flex gap-2 flex-wrap">
+                  <div className="flex-1 min-w-[140px]">
+                    <Input type="number" placeholder="Monto" value={newExpense.amount || ''}
+                      onChange={e => setNewExpense({ ...newExpense, amount: parseFloat(e.target.value) || 0 })}
+                      className="bg-white/5 border-white/10 text-sm w-full" />
+                  </div>
                   <Select value={newExpense.currency} onValueChange={v => setNewExpense({ ...newExpense, currency: v })}>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-sm w-20"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-sm w-24 flex-shrink-0"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="CRC">₡ CRC</SelectItem>
                       <SelectItem value="USD">$ USD</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button size="sm" onClick={addExpense} disabled={saving} className="bg-red-600 hover:bg-red-700">
+                  <Button size="sm" onClick={addExpense} disabled={saving} className="bg-red-600 hover:bg-red-700 flex-shrink-0">
                     <Plus size={14} />
                   </Button>
                 </div>
@@ -959,7 +965,8 @@ function PresupuestoPage({ budgets, userId, onRefresh, userName, exchangeRate }:
                     ...activeBudget.incomes.map(i => ['Ingreso', i.category, i.description, i.amount.toString()]),
                     ...activeBudget.expenses.map(e => ['Gasto', e.category, e.description, e.amount.toString()]),
                   ]
-                  const csv = rows.map(r => r.join(',')).join('\n')
+                  const escapeCSV = (val: string) => (val.includes(',') || val.includes('"') || val.includes('\n')) ? `"${val.replace(/"/g, '""')}"` : val
+                  const csv = rows.map(r => r.map(escapeCSV).join(',')).join('\n')
                   const blob = new Blob([csv], { type: 'text/csv' })
                   const url = URL.createObjectURL(blob)
                   const a = document.createElement('a'); a.href = url; a.download = `${activeBudget.name}.csv`; a.click()
@@ -1161,11 +1168,11 @@ function CreditCardCalc() {
           </Card>
 
           <Card className="glass border-white/5 p-5">
-            <h4 className="font-medium text-sm mb-4 flex items-center gap-2"><Layers size={16} className="text-[var(--bp-purple-light)]" /> Planes de Lealtad (Al 100%)</h4>
+            <h4 className="font-medium text-sm mb-4 flex items-center gap-2"><Layers size={16} className="text-[var(--bp-purple-light)]" /> Financiamientos (Al 100%)</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className={`bp-switch-card rounded-xl p-4 ${tasaCeroOn ? 'active' : ''}`}>
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm cursor-pointer">Tasa Cero</Label>
+                  <Label className="text-sm cursor-pointer">Cero interés</Label>
                   <Switch checked={tasaCeroOn} onCheckedChange={setTasaCeroOn} />
                 </div>
                 {tasaCeroOn && (
@@ -1178,7 +1185,7 @@ function CreditCardCalc() {
               </div>
               <div className={`bp-switch-card rounded-xl p-4 ${minicuotasOn ? 'active' : ''}`}>
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm cursor-pointer">BP Minicuotas</Label>
+                  <Label className="text-sm cursor-pointer">Financiamiento con interes</Label>
                   <Switch checked={minicuotasOn} onCheckedChange={setMinicuotasOn} />
                 </div>
                 {minicuotasOn && (
@@ -1293,7 +1300,7 @@ function BPLoyaltyCalc() {
 
   const programs = [
     { id: 'minicuotas' as const, name: 'Mini Cuotas', desc: 'Tasa 24% CRC / 20% USD', icon: <Percent size={18} /> },
-    { id: 'tasaCero' as const, name: 'Tasa Cero', desc: '0% + comisión 3%', icon: <Star size={18} /> },
+    { id: 'tasaCero' as const, name: 'Cero interés', desc: '0% + comisión 3%', icon: <Star size={18} /> },
     { id: 'compraSaldos' as const, name: 'Compra de Saldos', desc: 'Tasa 21% CRC / 18% USD', icon: <Scale size={18} /> },
     { id: 'otros' as const, name: 'Otros', desc: 'Tasa/Comisión Personalizada', icon: <Gem size={18} /> },
   ]
@@ -1530,6 +1537,9 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
   const [showNew, setShowNew] = useState(false)
   const [newGoal, setNewGoal] = useState({ name: '', targetAmount: 0, currentAmount: 0, targetDate: '', currency: 'CRC' })
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
+  const [transactingGoalId, setTransactingGoalId] = useState<string | null>(null)
+  const [transactionType, setTransactionType] = useState<'add' | 'withdraw' | null>(null)
+  const [transactionAmount, setTransactionAmount] = useState('')
   const [saving, setSaving] = useState(false)
 
   const createGoal = async () => {
@@ -1571,6 +1581,27 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
     await fetch('/api/goals?id=' + encodeURIComponent(id), { method: 'DELETE' })
     onRefresh()
     toast.success('Meta eliminada')
+  }
+
+  const handleTransaction = async (goal: Goal, type: 'add' | 'withdraw', amount: number) => {
+    if (amount <= 0) { toast.error('Ingresa un monto válido'); return }
+    const newAmount = type === 'add' 
+      ? Math.min(goal.currentAmount + amount, goal.targetAmount)
+      : Math.max(goal.currentAmount - amount, 0)
+    try {
+      const res = await fetch('/api/goals', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...goal, currentAmount: newAmount }),
+      })
+      if (res.ok) {
+        onRefresh()
+        setTransactingGoalId(null)
+        setTransactionAmount('')
+        toast.success(type === 'add' ? 'Monto agregado' : 'Monto retirado')
+      } else {
+        toast.error('Error actualizando meta')
+      }
+    } catch { toast.error('Error al actualizar meta') }
   }
 
   return (
@@ -1678,11 +1709,40 @@ function SavingsGoalsPage({ goals, userId, onRefresh }: {
                   <span className="text-green-400">{formatCRC(g.currentAmount, g.currency)}</span>
                   <span className="text-muted-foreground">de {formatCRC(g.targetAmount, g.currency)}</span>
                 </div>
-                <Progress value={Math.min(pct, 100)} className="h-3 mb-2" />
-                <div className="flex justify-between text-xs text-muted-foreground">
+                <Progress value={Math.min(pct, 100)} className="h-3 mb-3" />
+                <div className="flex justify-between text-xs text-muted-foreground mb-3">
                   <span>{pct.toFixed(1)}% completado</span>
                   {g.targetDate && <span>Meta: {g.targetDate}</span>}
                 </div>
+                {transactingGoalId === g.id ? (
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground mb-1 block">Monto ({transactionType === 'add' ? 'Agregar' : 'Retirar'})</Label>
+                      <Input type="number" placeholder="0" value={transactionAmount}
+                        onChange={e => setTransactionAmount(e.target.value)}
+                        className="bg-white/5 border-white/10 text-sm" />
+                    </div>
+                    <Button size="sm" className={transactionType === 'add' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+                      onClick={() => handleTransaction(g, transactionType!, parseFloat(transactionAmount) || 0)}>
+                      Confirmar
+                    </Button>
+                    <Button size="sm" variant="outline" 
+                      onClick={() => { setTransactingGoalId(null); setTransactionAmount('') }}>
+                      X
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1 border-green-500/30 text-green-400 hover:bg-green-500/10" 
+                      onClick={() => { setTransactingGoalId(g.id); setTransactionType('add'); setTransactionAmount('') }}>
+                      <Plus size={14} className="mr-1" /> Agregar
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10" 
+                      onClick={() => { setTransactingGoalId(g.id); setTransactionType('withdraw'); setTransactionAmount('') }}>
+                      <Minus size={14} className="mr-1" /> Retirar
+                    </Button>
+                  </div>
+                )}
               </Card>
             )
           })}
@@ -1874,6 +1934,31 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
   userId: string; userName: string; userEmail: string; exchangeRate: { buy: number; sell: number; source: string; date: string } | null
 }) {
   const [name, setName] = useState(userName)
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false)
+  const [isDeletingData, setIsDeletingData] = useState(false)
+
+  const deleteUserData = async () => {
+    if (!userId) return
+    setIsDeletingData(true)
+    try {
+      const response = await fetch(`/api/user-data?userId=${encodeURIComponent(userId)}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        toast.success('Tus datos han sido eliminados correctamente')
+        setShowConfirmDelete(false)
+        window.location.reload()
+      } else {
+        toast.error('No se pudo borrar la información. Intenta de nuevo.')
+      }
+    } catch (error) {
+      console.error('Error borrando datos del usuario:', error)
+      toast.error('Error de red al borrar los datos')
+    } finally {
+      setIsDeletingData(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -1883,6 +1968,7 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
         <TabsList className="bg-white/5 border border-white/10 w-full flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="profile" className="text-xs data-[state=active]:bg-indigo-600">Perfil</TabsTrigger>
           <TabsTrigger value="exchange" className="text-xs data-[state=active]:bg-indigo-600">Tipo de Cambio</TabsTrigger>
+          <TabsTrigger value="privacy" className="text-xs data-[state=active]:bg-indigo-600">Tratamiento de Datos</TabsTrigger>
           <TabsTrigger value="about" className="text-xs data-[state=active]:bg-indigo-600">Acerca de</TabsTrigger>
         </TabsList>
 
@@ -1939,6 +2025,65 @@ function ConfigPage({ userId, userName, userEmail, exchangeRate }: {
               <RefreshCw size={14} className="mr-1" /> Actualizar
             </Button>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="privacy">
+          <Card className="glass border-white/5 p-6 space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-xl font-semibold">Tratamiento de Datos</h3>
+              <p className="text-sm leading-7 text-muted-foreground">
+                Este proyecto es un gestor financiero de código abierto. Los datos no son administrados por ninguna entidad externa, sino por usted mismo.
+              </p>
+              <p className="text-sm leading-7 text-muted-foreground">
+                Si desea borrar sus registros, al final de esta sección encontrará la opción para eliminar su huella digital.
+              </p>
+              <p className="text-sm leading-7 text-muted-foreground">
+                Los datos no se utilizan para estudios estadísticos, ni para alimentar inteligencia artificial, ni para generar predicciones financieras.
+              </p>
+              <p className="text-sm leading-7 text-muted-foreground">
+                Esta herramienta tiene como única finalidad servirle como un canal para administrar sus finanzas de forma responsable.
+              </p>
+            </div>
+            <div className="rounded-3xl border border-red-500/10 bg-red-500/5 p-5 space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-red-300 uppercase tracking-[0.25em]">Borrar mis datos</p>
+                <p className="text-xs text-muted-foreground leading-6">
+                  Borrar mis datos no elimina su cuenta. Si desea suprimir su información o cambiar su clave, debe contactar al desarrollador.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full border-red-500/50 text-red-400 hover:bg-red-500/10"
+                onClick={() => setShowConfirmDelete(true)}
+              >
+                Borrar mi huella digital
+              </Button>
+            </div>
+          </Card>
+
+          <Dialog open={showConfirmDelete} onOpenChange={setShowConfirmDelete}>
+            <DialogContent className="bg-slate-950/95 border-white/15 shadow-2xl backdrop-blur-xl">
+              <DialogHeader>
+                <DialogTitle>Confirmar eliminación de datos</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground leading-7">
+                  Esta acción borrará todos los presupuestos, créditos y metas de ahorro asociados a su usuario. No eliminará su cuenta.
+                </p>
+                <p className="text-sm text-muted-foreground leading-7">
+                  Una vez eliminados, los datos no podrán recuperarse. Asegúrese de tener copia de lo que necesite antes de continuar.
+                </p>
+              </div>
+              <DialogFooter className="mt-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowConfirmDelete(false)}>
+                  Cancelar
+                </Button>
+                <Button className="bg-red-600 hover:bg-red-700" onClick={deleteUserData} disabled={isDeletingData}>
+                  {isDeletingData ? 'Eliminando...' : 'Confirmar eliminación'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="about">
@@ -2073,7 +2218,13 @@ function Sidebar() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{(session.user as any).name}</p>
                 <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
+                <button onClick={() => signOut()} className="text-xs text-red-400 hover:text-red-300 mt-1 font-medium">Cerrar sesión</button>
               </div>
+            )}
+            {sidebarCollapsed && (
+              <button onClick={() => signOut()} className="text-xs text-red-400 hover:text-red-300" title="Cerrar sesión">
+                <LogOut size={16} />
+              </button>
             )}
           </div>
         </div>
@@ -2087,7 +2238,7 @@ function MobileNav() {
   const { activePage, setActivePage, mobileMenuOpen, setMobileMenuOpen } = useAppStore()
   const { data: session } = useSession()
 
-  const mobileItems = NAV_ITEMS.filter(i => ['dashboard', 'presupuesto', 'calculadoras', 'metas', 'config'].includes(i.id))
+  const mobileItems = NAV_ITEMS.filter(i => ['dashboard', 'presupuesto', 'creditos', 'calculadoras', 'metas', 'config'].includes(i.id))
 
   return (
     <>
@@ -2161,6 +2312,7 @@ function MainApp() {
   const { activePage } = useAppStore()
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
+  const [credits, setCredits] = useState<any[]>([])
   const [exchangeRate, setExchangeRate] = useState<{ buy: number; sell: number; source: string; date: string } | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -2169,22 +2321,32 @@ function MainApp() {
   const refreshData = useCallback(async () => {
     if (!userId) return
     try {
-      const [bRes, gRes, eRes] = await Promise.all([
+      const [bRes, gRes, cRes, eRes] = await Promise.all([
         fetch(`/api/budgets?userId=${userId}`),
         fetch(`/api/goals?userId=${userId}`),
+        fetch(`/api/credits?userId=${userId}`),
         fetch('/api/exchange-rate'),
       ])
       const bData = await bRes.json()
       const gData = await gRes.json()
+      const cData = await cRes.json()
       const eData = await eRes.json()
       setBudgets(Array.isArray(bData) ? bData : [])
       setGoals(Array.isArray(gData) ? gData : [])
+      setCredits(Array.isArray(cData) ? cData : [])
       setExchangeRate(eData)
     } catch (e) { console.error('Data fetch error:', e) }
     finally { setLoading(false) }
   }, [userId])
 
   useEffect(() => { refreshData() }, [refreshData])
+
+  useEffect(() => {
+    if (activePage === 'dashboard') {
+      const interval = setInterval(() => fetch('/api/exchange-rate').then(r => r.json()).then(setExchangeRate), 5 * 60 * 1000)
+      return () => clearInterval(interval)
+    }
+  }, [activePage])
 
   const userName = (session?.user as any)?.name || 'Usuario'
   const userEmail = session?.user?.email || ''
@@ -2195,6 +2357,8 @@ function MainApp() {
         return <DashboardPage budgets={budgets} goals={goals} exchangeRate={exchangeRate} userName={userName} />
       case 'presupuesto':
         return <PresupuestoPage budgets={budgets} userId={userId} onRefresh={refreshData} userName={userName} exchangeRate={exchangeRate} />
+      case 'creditos':
+        return <CreditsPage credits={credits} userId={userId} onRefresh={refreshData} />
       case 'calculadoras':
         return <CalculatorsPage />
       case 'aguinaldo':

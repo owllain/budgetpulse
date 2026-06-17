@@ -221,7 +221,7 @@ export function calcBPMinicuotas(
   const monthlyRate = annualRate / 12
 
   return {
-    program: 'BP Minicuotas',
+    program: 'Financiamiento con interes',
     amount,
     paymentsByTerm: terms.map(term => ({
       term,
@@ -235,7 +235,7 @@ export function calcBPTasaCero(amount: number): LoyaltyProgramResult {
   const commission = amount * 0.03
 
   return {
-    program: 'BP Tasa Cero',
+    program: 'Cero interes',
     amount,
     paymentsByTerm: terms.map(term => ({
       term,

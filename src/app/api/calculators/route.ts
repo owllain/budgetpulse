@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
           const factor = Math.pow(1 + r, t)
           return { term: t, payment: amount * (r * factor) / (factor - 1) }
         })
-        return NextResponse.json({ program: 'BP Minicuotas', amount, currency, rates: { annual: annualRate, monthly: r }, payments })
+        return NextResponse.json({ program: 'Financiamiento con interes', amount, currency, rates: { annual: annualRate, monthly: r }, payments })
       }
 
       case 'bpTasaCero': {
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
         const commission = amount * 0.03
         const terms = [3, 4, 6, 9, 10, 12]
         return NextResponse.json({
-          program: 'BP Tasa Cero', amount, commission, totalWithCommission: amount + commission,
+          program: 'Cero interes', amount, commission, totalWithCommission: amount + commission,
           payments: terms.map(t => ({ term: t, payment: amount / t })),
         })
       }

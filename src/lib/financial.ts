@@ -104,12 +104,12 @@ export function calcNetSalary(grossSalary: number): { gross: number; ccss: numbe
 // BP Programs
 export function bpMinicuotas(amount: number, currency: 'CRC' | 'USD') {
   const rates: Record<string, number> = { CRC: 0.24, USD: 0.1992 }
-  return { program: 'BP Minicuotas', amount, paymentsByTerm: [12, 24, 36, 48].map(t => ({ term: t, payment: calcPMT(amount, rates[currency], t) })) }
+  return { program: 'Financiamiento con interes', amount, paymentsByTerm: [12, 24, 36, 48].map(t => ({ term: t, payment: calcPMT(amount, rates[currency], t) })) }
 }
 
 export function bpTasaCero(amount: number) {
   const commission = amount * 0.03
-  return { program: 'BP Tasa Cero', amount, commission, totalWithCommission: amount + commission, paymentsByTerm: [3, 4, 6, 9, 10, 12].map(t => ({ term: t, payment: amount / t })) }
+  return { program: 'Cero interes', amount, commission, totalWithCommission: amount + commission, paymentsByTerm: [3, 4, 6, 9, 10, 12].map(t => ({ term: t, payment: amount / t })) }
 }
 
 export function bpCompraSaldos(amount: number, currency: 'CRC' | 'USD') {

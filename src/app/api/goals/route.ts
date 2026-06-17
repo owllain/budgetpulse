@@ -1,22 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db, hasColumn } from '@/lib/turso'
+import { db } from '@/lib/turso'
 import { v4 as uuid } from 'uuid'
 
 // GET /api/goals?userId=xxx
 export async function GET(req: NextRequest) {
   try {
     const userId = req.nextUrl.searchParams.get('userId')
-    const goalsHasUser = await hasColumn('savings_goals', 'user_id')
 
-    if (goalsHasUser && !userId) {
+    if (!userId) {
       return NextResponse.json({ error: 'userId requerido' }, { status: 400 })
     }
 
-    const sql = goalsHasUser
-      ? 'SELECT * FROM savings_goals WHERE user_id = ? ORDER BY created_at DESC'
-      : 'SELECT * FROM savings_goals ORDER BY created_at DESC'
-
-    const goals = await db.execute({ sql, args: goalsHasUser ? [userId] : [] })
+    const goals = await db.execute({
+      sql: 'SELECT * FROM savings_goals WHERE user_id = ? ORDER BY created_at DESC',
+      args: [userId],
+    })
 
     return NextResponse.json(goals.rows.map(g => ({
       id: g.id,
@@ -25,7 +23,7 @@ export async function GET(req: NextRequest) {
       currentAmount: g.current_amount,
       targetDate: g.target_date,
       currency: g.currency,
-      userId: goalsHasUser ? g.user_id : undefined,
+      userId: g.user_id,
       createdAt: g.created_at,
     })))
   } catch (error) {
@@ -38,26 +36,15 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const { name, targetAmount, currentAmount, targetDate, currency, userId } = await req.json()
-    const goalsHasUser = await hasColumn('savings_goals', 'user_id')
 
-    if (!name || !targetAmount || (goalsHasUser && !userId)) {
+    if (!name || !targetAmount || !userId) {
       return NextResponse.json({ error: 'Nombre, monto objetivo y usuario son requeridos' }, { status: 400 })
     }
 
     const id = uuid()
-    const columns = ['id', 'name', 'target_amount', 'current_amount', 'target_date', 'currency']
-    const values = ['?', '?', '?', '?', '?', '?']
-    const args = [id, name, targetAmount, currentAmount || 0, targetDate || null, currency || 'CRC']
-
-    if (goalsHasUser) {
-      columns.splice(1, 0, 'user_id')
-      values.splice(1, 0, '?')
-      args.splice(1, 0, userId)
-    }
-
     await db.execute({
-      sql: `INSERT INTO savings_goals (${columns.join(', ')}) VALUES (${values.join(', ')})`,
-      args,
+      sql: `INSERT INTO savings_goals (id, user_id, name, target_amount, current_amount, target_date, currency) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args: [id, userId, name, targetAmount, currentAmount || 0, targetDate || null, currency || 'CRC'],
     })
 
     return NextResponse.json({
@@ -67,7 +54,7 @@ export async function POST(req: NextRequest) {
       currentAmount: currentAmount || 0,
       targetDate,
       currency: currency || 'CRC',
-      userId: goalsHasUser ? userId : undefined,
+      userId,
     }, { status: 201 })
   } catch (error) {
     console.error('POST goals error:', error)
